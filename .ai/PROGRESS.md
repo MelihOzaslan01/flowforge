@@ -94,3 +94,11 @@
 - **Not/risk:** Aynı run'ın tüm eventleri `runId` key'i nedeniyle aynı Kafka partition'ında kaldığından örnek smoke run tek worker tarafından işlendi; bu tasarım §4.1'deki run içi sıra garantisinin beklenen sonucu.
 
 ---
+
+## 2026-06-10 — Görev 2.1 takip düzeltmesi: EF log gürültüsü
+- **Yapılan:** 2.1 raporunda atlanan EF log chore'u tamamlandı. Worker ve ControlPlane appsettings içinde `Microsoft.EntityFrameworkCore.Database.Command` log seviyesi `Warning` yapıldı; 3 worker altında SQL sorgu gürültüsü partition/chaos loglarını boğmayacak.
+- **Dokunulan dosyalar:** değişen: `src/FlowForge.Worker/appsettings.json`, `src/FlowForge.ControlPlane/appsettings.json`, `.ai/PROGRESS.md`
+- **Doğrulama:** `git diff src/FlowForge.ControlPlane/FlowForge.ControlPlane.csproj` sadece satır sonu normalizasyon uyarısı gösterdi; dosya geri alındı. `dotnet build .\flowforge.sln -warnaserror` ✅; `dotnet test .\tests\FlowForge.UnitTests\FlowForge.UnitTests.csproj` ✅; `docker compose up -d --build` ✅; `scripts/smoke.sh` ✅; outbox lag `0`; log kontrolünde worker partition/processing satırları okunuyor ve `Microsoft.EntityFrameworkCore.Database.Command` bilgi logu görünmüyor.
+- **Not/risk:** Bu madde 2.1 sırasında sessiz atlanmıştı; ayrı takip düzeltmesi olarak kayda geçirildi.
+
+---
