@@ -20,15 +20,32 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<ControlPlaneDbContext>();
-    await db.Database.MigrateAsync();
-    await ControlPlaneSeeder.SeedAsync(db, CancellationToken.None);
-}
+await MigrateAndSeedAsync(app, app.Lifetime.ApplicationStopping);
 
 app.MapJobEndpoints();
 app.MapHealthChecks("/healthz");
 app.MapHealthChecks("/readyz");
 
 app.Run();
+
+static async Task MigrateAndSeedAsync(WebApplication app, CancellationToken ct)
+{
+    var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+
+    while (!ct.IsCancellationRequested)
+    {
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ControlPlaneDbContext>();
+            await db.Database.MigrateAsync(ct);
+            await ControlPlaneSeeder.SeedAsync(db, ct);
+            return;
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogError(ex, "ControlPlane database is not ready. Retrying in 5 seconds.");
+            await Task.Delay(TimeSpan.FromSeconds(5), ct);
+        }
+    }
+}

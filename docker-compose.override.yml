@@ -1,12 +1,1 @@
-services:
-  kafka:
-    ports:
-      - "9092:9092"
-
-  kafka-ui:
-    ports:
-      - "8080:8080"
-
-  postgres:
-    ports:
-      - "5432:5432"
+services: {}

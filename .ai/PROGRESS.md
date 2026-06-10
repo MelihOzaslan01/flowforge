@@ -70,3 +70,11 @@
 - **Not/risk:** Inbox tablosu bilinçli olarak kullanılmadı; idempotency terminal status kontrolüyle doğal sağlanıyor. Runtime Kafka testi Faz 1.8 smoke sırasında yapılacak.
 
 ---
+
+## 2026-06-10 — Görev 1.8: docker-compose + smoke
+- **Yapılan:** ControlPlane ve Worker için multi-stage Dockerfile'lar eklendi; `docker-compose.yml` Kafka KRaft, kafka-ui, Postgres, kafka-init, controlplane ve worker servisleriyle tamamlandı. Compose environment override'ları `Kafka=kafka:9092` ve `Postgres Host=postgres` kullanıyor; appsettings localhost değerleri lokal IDE için korundu. DB migration başlangıcına retry döngüsü eklendi, consumer hosted service'lerinde host startup'ı bloklamasın diye ilk await garanti edildi ve `scripts/smoke.sh` run başlatıp `Completed` poll edecek hale getirildi.
+- **Dokunulan dosyalar:** yeni: `.dockerignore`, `src/FlowForge.ControlPlane/Dockerfile`, `src/FlowForge.Worker/Dockerfile`, `scripts/smoke.sh`, `.ai/sessions/2026-06-10-gorev-1.8.md` | değişen: `docker-compose.yml`, `docker-compose.override.yml`, `src/FlowForge.ControlPlane/Program.cs`, `src/FlowForge.ControlPlane/Projection/JobRunProjectionConsumer.cs`, `src/FlowForge.Worker/Program.cs`, `src/FlowForge.Worker/Kafka/JobEventsConsumer.cs`, `.ai/BACKLOG.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyarı, 0 hata; `dotnet test .\tests\FlowForge.UnitTests\FlowForge.UnitTests.csproj` ✅ — 3 test geçti; `docker compose up -d --build` ✅; `scripts/smoke.sh` ✅ — run `Completed`; outbox lag sorguları ✅ — `control_db=0`, `worker_db=0`; Kafka topic doğrulaması ✅ — `flowforge.job.events=6`, `flowforge.job.events.dlq=3`, `flowforge.job.logs=6` partition.
+- **Not/risk:** Windows ortamında WSL `bash` yoktu; smoke doğrulaması Git Bash ile çalıştırıldı. Script POSIX shell uyumlu tutuldu, ayrıca minimal Git Bash ortamı için `seq`/`sed` bağımlılığı kaldırıldı ve `sleep` fallback'i eklendi.
+
+---

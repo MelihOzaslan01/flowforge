@@ -15,10 +15,28 @@ builder.Services.AddOutboxPublisher<WorkerDbContext>(builder.Configuration.GetSe
 
 var host = builder.Build();
 
-using (var scope = host.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<WorkerDbContext>();
-    await db.Database.MigrateAsync();
-}
+var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
+await MigrateAsync(host, lifetime.ApplicationStopping);
 
 host.Run();
+
+static async Task MigrateAsync(IHost host, CancellationToken ct)
+{
+    var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+
+    while (!ct.IsCancellationRequested)
+    {
+        try
+        {
+            using var scope = host.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WorkerDbContext>();
+            await db.Database.MigrateAsync(ct);
+            return;
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogError(ex, "Worker database is not ready. Retrying in 5 seconds.");
+            await Task.Delay(TimeSpan.FromSeconds(5), ct);
+        }
+    }
+}

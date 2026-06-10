@@ -17,6 +17,8 @@ public sealed class JobRunProjectionConsumer(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await Task.Yield();
+
         var config = new ConsumerConfig
         {
             BootstrapServers = options.Value.BootstrapServers,

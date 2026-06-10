@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+.git/
+.vs/
+.vscode/
+artifacts/
+data/
+volumes/
+logs/
+*.user
+*.suo

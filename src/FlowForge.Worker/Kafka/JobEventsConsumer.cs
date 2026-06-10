@@ -20,6 +20,8 @@ public sealed class JobEventsConsumer(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await Task.Yield();
+
         var config = new ConsumerConfig
         {
             BootstrapServers = options.Value.BootstrapServers,

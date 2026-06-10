@@ -12,6 +12,23 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
+  kafka-init:
+    image: apache/kafka:3.9.0
+    depends_on:
+      - kafka
+    command:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1; do
+          echo "Waiting for Kafka..."
+          sleep 2
+        done
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic flowforge.job.events --partitions 6 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic flowforge.job.events.dlq --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic flowforge.job.logs --partitions 6 --replication-factor 1
+
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     ports:
@@ -30,6 +47,42 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./infra/init-dbs.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  controlplane:
+    build:
+      context: .
+      dockerfile: src/FlowForge.ControlPlane/Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__ControlDb: Host=postgres;Port=5432;Database=control_db;Username=postgres;Password=flowforge
+      Kafka__BootstrapServers: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: .
+      dockerfile: src/FlowForge.Worker/Dockerfile
+    deploy:
+      replicas: 1
+    environment:
+      ConnectionStrings__WorkerDb: Host=postgres;Port=5432;Database=worker_db;Username=postgres;Password=flowforge
+      Kafka__BootstrapServers: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
 volumes:
   pgdata:
