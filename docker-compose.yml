@@ -74,7 +74,7 @@ services:
       context: .
       dockerfile: src/FlowForge.Worker/Dockerfile
     deploy:
-      replicas: 1
+      replicas: 3
     environment:
       ConnectionStrings__WorkerDb: Host=postgres;Port=5432;Database=worker_db;Username=postgres;Password=flowforge
       Kafka__BootstrapServers: kafka:9092

@@ -86,3 +86,11 @@
 - **Not/risk:** `v0.1` tag'i zaten remote'da doğru commit'e pushlanmış olduğu için force tag işlemi yapılmadı.
 
 ---
+
+## 2026-06-10 — Görev 2.1: Worker replicas ve partition logları
+- **Yapılan:** `docker-compose.yml` içinde Worker replica sayısı 3'e çıkarıldı. `JobEventsConsumer` partition assignment/revocation logları ve mesaj işleme logları üretir hale getirildi; loglarda `flowforge.job.events` 6 partition'ın 3 worker'a 2'şer dağıldığı görüldü.
+- **Dokunulan dosyalar:** yeni: `.ai/sessions/2026-06-10-gorev-2.1.md` | değişen: `docker-compose.yml`, `src/FlowForge.Worker/Kafka/JobEventsConsumer.cs`, `.ai/BACKLOG.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyarı, 0 hata; `dotnet test .\tests\FlowForge.UnitTests\FlowForge.UnitTests.csproj` ✅ — 3 test geçti; `docker compose up -d --build` ✅ — `flowforge-worker-1/2/3` ayakta; `scripts/smoke.sh` ✅ — run `Completed`; outbox lag sorguları ✅ — `control_db=0`, `worker_db=0`; log doğrulaması ✅ — worker'lar partitionları `[0,3]`, `[1,4]`, `[2,5]` olarak aldı.
+- **Not/risk:** Aynı run'ın tüm eventleri `runId` key'i nedeniyle aynı Kafka partition'ında kaldığından örnek smoke run tek worker tarafından işlendi; bu tasarım §4.1'deki run içi sıra garantisinin beklenen sonucu.
+
+---

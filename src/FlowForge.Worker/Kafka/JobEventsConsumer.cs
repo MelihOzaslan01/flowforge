@@ -33,7 +33,22 @@ public sealed class JobEventsConsumer(
             PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky
         };
 
-        using var consumer = new ConsumerBuilder<string, string>(config).Build();
+        using var consumer = new ConsumerBuilder<string, string>(config)
+            .SetPartitionsAssignedHandler((_, partitions) =>
+            {
+                logger.LogInformation(
+                    "Worker {WorkerId} assigned Kafka partitions: {Partitions}",
+                    _workerId,
+                    FormatPartitions(partitions));
+            })
+            .SetPartitionsRevokedHandler((_, partitions) =>
+            {
+                logger.LogInformation(
+                    "Worker {WorkerId} revoked Kafka partitions: {Partitions}",
+                    _workerId,
+                    FormatPartitions(partitions));
+            })
+            .Build();
         consumer.Subscribe(KafkaTopics.JobEvents);
 
         try
@@ -117,6 +132,14 @@ public sealed class JobEventsConsumer(
         }
 
         var (runId, step, steps) = work.Value;
+        logger.LogInformation(
+            "Worker {WorkerId} processing {EventType} for run {RunId}, step {StepNo} from {TopicPartitionOffset}.",
+            _workerId,
+            envelope.EventType,
+            runId,
+            step.StepNo,
+            result.TopicPartitionOffset);
+
         var startedAt = DateTimeOffset.UtcNow;
         await executor.RunAsync(step, ct);
 
@@ -148,6 +171,18 @@ public sealed class JobEventsConsumer(
         await tx.CommitAsync(ct);
 
         consumer.Commit(result);
+    }
+
+    private static string FormatPartitions(IEnumerable<TopicPartition> partitions)
+    {
+        return string.Join(", ", partitions.Select(partition =>
+            $"{partition.Topic}[{partition.Partition.Value}]"));
+    }
+
+    private static string FormatPartitions(IEnumerable<TopicPartitionOffset> partitions)
+    {
+        return string.Join(", ", partitions.Select(partition =>
+            $"{partition.Topic}[{partition.Partition.Value}]@{partition.Offset.Value}"));
     }
 
     private static (Guid RunId, JobStepDefinition Step, IReadOnlyList<JobStepDefinition> Steps)? ResolveWork(
