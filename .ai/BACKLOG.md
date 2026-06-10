@@ -12,7 +12,7 @@
 - [x] 1.6 Worker: consumer loop + StepExecutor + TX sıralaması (iş+inbox+outbox → commit → offset)
 - [x] 1.7 ControlPlane projeksiyon consumer'ı (`controlplane-projection` group)
 - [x] 1.8 docker-compose + kafka-init + scripts/smoke.sh yeşil
-- [ ] **Faz 1 kapanış:** smoke yeşil, Kafka UI'da 4 StepCompleted + 1 JobRunCompleted, outbox lag = 0 → `git tag v0.1`
+- [x] **Faz 1 kapanış:** smoke yeşil, Kafka UI'da 4 StepCompleted + 1 JobRunCompleted, outbox lag = 0 → `git tag v0.1`
 
 ## Faz 2 — Dayanıklılık (Retry, DLQ, Saga, Test)
 - [ ] 2.1 Worker replicas: 3, partition dağılımı loglarda

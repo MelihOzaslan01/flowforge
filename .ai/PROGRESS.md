@@ -78,3 +78,11 @@
 - **Not/risk:** Windows ortamında WSL `bash` yoktu; smoke doğrulaması Git Bash ile çalıştırıldı. Script POSIX shell uyumlu tutuldu, ayrıca minimal Git Bash ortamı için `seq`/`sed` bağımlılığı kaldırıldı ve `sleep` fallback'i eklendi.
 
 ---
+
+## 2026-06-10 — Faz 1 kapanış
+- **Yapılan:** Faz 1 kapanış kriterleri tamamlandı olarak işaretlendi. `main` ve `v0.1` remote üzerinde smoke-green commit `f40696d` hedefini gösteriyor.
+- **Dokunulan dosyalar:** değişen: `.ai/BACKLOG.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** Önceki 1.8 doğrulaması geçerli: `scripts/smoke.sh` ✅, outbox lag `0`, Kafka topic partitionları doğru; remote kontrolü ✅ — `origin/main=f40696d`, `origin refs/tags/v0.1^{}=f40696d`.
+- **Not/risk:** `v0.1` tag'i zaten remote'da doğru commit'e pushlanmış olduğu için force tag işlemi yapılmadı.
+
+---
