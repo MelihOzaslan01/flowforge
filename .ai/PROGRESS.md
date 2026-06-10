@@ -62,3 +62,11 @@
 - **Not/risk:** `StepCompleted` payload'ı stateless worker için `steps[]` taşıyacak şekilde genişletildi ve D-002 karar kaydı eklendi. Faz 1 kapsamına uygun olarak chaos/retry uygulanmadı.
 
 ---
+
+## 2026-06-10 — Görev 1.7: ControlPlane projeksiyon consumer'ı
+- **Yapılan:** ControlPlane'e ikinci hosted service olarak `JobRunProjectionConsumer` eklendi. Consumer `flowforge.job.events` topic'ini `controlplane-projection` group ile, `EnableAutoCommit=false` ayarıyla dinliyor; `JobRunCompleted` için `Status=Completed` + `FinishedAt`, `JobRunFailed` için `Status=Failed` + `FailedStep` + `FinishedAt` yazıyor.
+- **Dokunulan dosyalar:** yeni: `src/FlowForge.ControlPlane/Projection/ProjectionKafkaOptions.cs`, `src/FlowForge.ControlPlane/Projection/JobRunProjectionConsumer.cs`, `.ai/sessions/2026-06-10-gorev-1.7.md` | değişen: `src/FlowForge.ControlPlane/FlowForge.ControlPlane.csproj`, `src/FlowForge.ControlPlane/Program.cs`, `.ai/BACKLOG.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyarı, 0 hata; `dotnet test .\tests\FlowForge.UnitTests\FlowForge.UnitTests.csproj` ✅ — 3 test geçti; kod kontrolünde `GroupId=controlplane-projection`, `EnableAutoCommit=false`, terminal status idempotency ve diğer eventlerde offset commit doğrulandı.
+- **Not/risk:** Inbox tablosu bilinçli olarak kullanılmadı; idempotency terminal status kontrolüyle doğal sağlanıyor. Runtime Kafka testi Faz 1.8 smoke sırasında yapılacak.
+
+---
