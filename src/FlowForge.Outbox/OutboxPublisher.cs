@@ -53,8 +53,14 @@ public sealed class OutboxPublisher<TDbContext>(
 
             foreach (var message in batch)
             {
-                await PublishMessageAsync(db, message, ct);
+                var published = await PublishMessageAsync(message, ct);
+                if (!published)
+                {
+                    break;
+                }
             }
+
+            await db.SaveChangesAsync(ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -66,7 +72,7 @@ public sealed class OutboxPublisher<TDbContext>(
         }
     }
 
-    private async Task PublishMessageAsync(TDbContext db, OutboxMessage message, CancellationToken ct)
+    private async Task<bool> PublishMessageAsync(OutboxMessage message, CancellationToken ct)
     {
         try
         {
@@ -80,6 +86,7 @@ public sealed class OutboxPublisher<TDbContext>(
                 ct);
 
             message.PublishedAt = DateTimeOffset.UtcNow;
+            return true;
         }
         catch (ProduceException<string, string> ex)
         {
@@ -90,6 +97,7 @@ public sealed class OutboxPublisher<TDbContext>(
                 message.Id,
                 message.EventType,
                 message.AttemptCount);
+            return false;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -100,10 +108,7 @@ public sealed class OutboxPublisher<TDbContext>(
                 message.Id,
                 message.EventType,
                 message.AttemptCount);
-        }
-        finally
-        {
-            await db.SaveChangesAsync(ct);
+            return false;
         }
     }
 }
