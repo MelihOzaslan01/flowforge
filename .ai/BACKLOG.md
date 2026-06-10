@@ -7,7 +7,7 @@
 - [x] 1.1 Solution iskeleti (`dotnet build` 0 warning)
 - [x] 1.2 Contracts: EventEnvelope + 8 event record + KafkaTopics + round-trip testi
 - [x] 1.3 ControlPlane veri katmanı: control_db entity + DbContext + Initial migration (partial index dahil)
-- [ ] 1.4 Job API: 6 endpoint + Swagger + seed job (`monthly-sales-report`, chaos=0)
+- [x] 1.4 Job API: 6 endpoint + Swagger + seed job (`monthly-sales-report`, chaos=0)
 - [ ] 1.5 OutboxPublisher (FlowForge.Outbox classlib, 500ms, batch 100, Acks.All)
 - [ ] 1.6 Worker: consumer loop + StepExecutor + TX sıralaması (iş+inbox+outbox → commit → offset)
 - [ ] 1.7 ControlPlane projeksiyon consumer'ı (`controlplane-projection` group)
