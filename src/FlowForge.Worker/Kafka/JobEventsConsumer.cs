@@ -115,9 +115,10 @@ public sealed class JobEventsConsumer(
         }
 
         var (runId, step, steps) = work.Value;
+        var startedAt = DateTimeOffset.UtcNow;
         await executor.RunAsync(step, ct);
 
-        var now = DateTimeOffset.UtcNow;
+        var finishedAt = DateTimeOffset.UtcNow;
         db.JobStepRuns.Add(new JobStepRun
         {
             Id = Guid.NewGuid(),
@@ -126,19 +127,19 @@ public sealed class JobEventsConsumer(
             Status = "Completed",
             WorkerId = _workerId,
             AttemptCount = 1,
-            StartedAt = now,
-            FinishedAt = now,
-            LastHeartbeatAt = now
+            StartedAt = startedAt,
+            FinishedAt = finishedAt,
+            LastHeartbeatAt = finishedAt
         });
 
         db.ProcessedMessages.Add(new ProcessedMessage
         {
             MessageId = envelope.MessageId,
             Consumer = ConsumerName,
-            ProcessedAt = now
+            ProcessedAt = finishedAt
         });
 
-        var nextEnvelope = CreateNextEnvelope(runId, step.StepNo, steps, now);
+        var nextEnvelope = CreateNextEnvelope(runId, step.StepNo, steps, finishedAt);
         db.OutboxMessages.Add(OutboxMessage.From(runId, nextEnvelope));
 
         await db.SaveChangesAsync(ct);
