@@ -102,3 +102,11 @@
 - **Not/risk:** Bu madde 2.1 sırasında sessiz atlanmıştı; ayrı takip düzeltmesi olarak kayda geçirildi.
 
 ---
+
+## 2026-06-10 — Görev 2.2: Polly retry
+- **Yapılan:** Worker consumer'da `StepExecutor.RunAsync` Polly `ResiliencePipeline` ile sarıldı; retry backoff'u 2s/4s/8s olacak şekilde `Delay=2s`, `BackoffType=Exponential`, `MaxRetryAttempts=step.MaxRetries` olarak ayarlandı. Retry denemeleri transaction dışında tamamlanıyor; başarısız denemeler `job_step_runs` tablosuna `Failed` ve artan `AttemptCount` ile yazılıp WARN loglanıyor, başarılı sonuç/inbox/outbox transaction'ı yalnız başarıdan sonra açılıyor.
+- **Dokunulan dosyalar:** yeni: `.ai/sessions/2026-06-10-gorev-2.2.md` | değişen: `src/FlowForge.Worker/FlowForge.Worker.csproj`, `src/FlowForge.Worker/Kafka/JobEventsConsumer.cs`, `.ai/BACKLOG.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyarı, 0 hata; `dotnet test .\tests\FlowForge.UnitTests\FlowForge.UnitTests.csproj` ✅ — 3 test geçti; `docker compose up -d --build` ✅; `scripts/smoke.sh` ✅ — run `Completed`; outbox lag sorguları ✅ — `control_db=0`, `worker_db=0`; smoke run step kayıtları ✅ — 4 step de `Completed`, `attempt_count=1`.
+- **Not/risk:** Chaos flag'e dokunulmadı; bu nedenle runtime smoke başarısız retry üretmedi. Retry tükenince exception tekrar fırlatılıyor ve mesaj Kafka tarafından yeniden teslim edilmeye bırakılıyor; DLQ yönlendirmesi 2.3 kapsamına bırakıldı.
+
+---

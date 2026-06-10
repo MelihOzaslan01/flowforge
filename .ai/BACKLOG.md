@@ -16,7 +16,7 @@
 
 ## Faz 2 — Dayanıklılık (Retry, DLQ, Saga, Test)
 - [x] 2.1 Worker replicas: 3, partition dağılımı loglarda
-- [ ] 2.2 Polly retry (2s/4s/8s, max_retries job_steps'ten)
+- [x] 2.2 Polly retry (2s/4s/8s, max_retries job_steps'ten)
 - [ ] 2.3 DLQ yönlendirmesi + StepFailed eventi
 - [ ] 2.4 Saga compensation zinciri (ters sıra, Compensate metodları)
 - [ ] 2.5 Chaos flag + `monthly-sales-report-chaos` seed job'ı

@@ -6,6 +6,8 @@ using FlowForge.Worker.Data;
 using FlowForge.Worker.Steps;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Polly;
+using Polly.Retry;
 
 namespace FlowForge.Worker.Kafka;
 
@@ -112,13 +114,10 @@ public sealed class JobEventsConsumer(
         var db = scope.ServiceProvider.GetRequiredService<WorkerDbContext>();
         var executor = scope.ServiceProvider.GetRequiredService<StepExecutor>();
 
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-
         var alreadyProcessed = await db.ProcessedMessages
             .AnyAsync(message => message.MessageId == envelope.MessageId, ct);
         if (alreadyProcessed)
         {
-            await tx.RollbackAsync(ct);
             consumer.Commit(result);
             return;
         }
@@ -126,7 +125,6 @@ public sealed class JobEventsConsumer(
         var work = ResolveWork(envelope);
         if (work is null)
         {
-            await tx.RollbackAsync(ct);
             consumer.Commit(result);
             return;
         }
@@ -140,10 +138,19 @@ public sealed class JobEventsConsumer(
             step.StepNo,
             result.TopicPartitionOffset);
 
-        var startedAt = DateTimeOffset.UtcNow;
-        await executor.RunAsync(step, ct);
+        var execution = await RunStepWithRetryAsync(db, executor, runId, step, ct);
 
-        var finishedAt = DateTimeOffset.UtcNow;
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        alreadyProcessed = await db.ProcessedMessages
+            .AnyAsync(message => message.MessageId == envelope.MessageId, ct);
+        if (alreadyProcessed)
+        {
+            await tx.RollbackAsync(ct);
+            consumer.Commit(result);
+            return;
+        }
+
         db.JobStepRuns.Add(new JobStepRun
         {
             Id = Guid.NewGuid(),
@@ -151,26 +158,130 @@ public sealed class JobEventsConsumer(
             StepNo = step.StepNo,
             Status = "Completed",
             WorkerId = _workerId,
-            AttemptCount = 1,
-            StartedAt = startedAt,
-            FinishedAt = finishedAt,
-            LastHeartbeatAt = finishedAt
+            AttemptCount = execution.Attempt,
+            StartedAt = execution.StartedAt,
+            FinishedAt = execution.FinishedAt,
+            LastHeartbeatAt = execution.FinishedAt
         });
 
         db.ProcessedMessages.Add(new ProcessedMessage
         {
             MessageId = envelope.MessageId,
             Consumer = ConsumerName,
-            ProcessedAt = finishedAt
+            ProcessedAt = execution.FinishedAt
         });
 
-        var nextEnvelope = CreateNextEnvelope(runId, step.StepNo, steps, finishedAt);
+        var nextEnvelope = CreateNextEnvelope(runId, step.StepNo, steps, execution.FinishedAt);
         db.OutboxMessages.Add(OutboxMessage.From(runId, nextEnvelope));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
         consumer.Commit(result);
+    }
+
+    private async Task<StepExecutionResult> RunStepWithRetryAsync(
+        WorkerDbContext db,
+        StepExecutor executor,
+        Guid runId,
+        JobStepDefinition step,
+        CancellationToken ct)
+    {
+        var previousAttempts = await db.JobStepRuns
+            .Where(run => run.RunId == runId && run.StepNo == step.StepNo)
+            .Select(run => (int?)run.AttemptCount)
+            .MaxAsync(ct) ?? 0;
+
+        var currentStartedAt = DateTimeOffset.UtcNow;
+        var attemptsStarted = 0;
+
+        var pipeline = new ResiliencePipelineBuilder()
+            .AddRetry(new RetryStrategyOptions
+            {
+                MaxRetryAttempts = Math.Max(0, step.MaxRetries),
+                Delay = TimeSpan.FromSeconds(2),
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = false,
+                OnRetry = async args =>
+                {
+                    var attempt = previousAttempts + args.AttemptNumber + 1;
+                    await RecordFailedAttemptAsync(runId, step, attempt, currentStartedAt, args.Outcome.Exception!, ct);
+                    currentStartedAt = DateTimeOffset.UtcNow;
+                }
+            })
+            .Build();
+
+        try
+        {
+            await pipeline.ExecuteAsync(async token =>
+            {
+                attemptsStarted++;
+                await executor.RunAsync(step, token);
+            }, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var attempt = previousAttempts + attemptsStarted;
+            await RecordFailedAttemptAsync(runId, step, attempt, currentStartedAt, ex, ct);
+            throw;
+        }
+
+        return new StepExecutionResult(
+            previousAttempts + attemptsStarted,
+            currentStartedAt,
+            DateTimeOffset.UtcNow);
+    }
+
+    private async Task RecordFailedAttemptAsync(
+        Guid runId,
+        JobStepDefinition step,
+        int attempt,
+        DateTimeOffset startedAt,
+        Exception exception,
+        CancellationToken ct)
+    {
+        var failedAt = DateTimeOffset.UtcNow;
+
+        logger.LogWarning(
+            exception,
+            "Step attempt failed for run {RunId}, step {StepNo}, attempt {Attempt}.",
+            runId,
+            step.StepNo,
+            attempt);
+
+        using var scope = scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<WorkerDbContext>();
+        var existing = await db.JobStepRuns.SingleOrDefaultAsync(
+            run => run.RunId == runId && run.StepNo == step.StepNo && run.AttemptCount == attempt,
+            ct);
+
+        if (existing is null)
+        {
+            db.JobStepRuns.Add(new JobStepRun
+            {
+                Id = Guid.NewGuid(),
+                RunId = runId,
+                StepNo = step.StepNo,
+                Status = "Failed",
+                WorkerId = _workerId,
+                AttemptCount = attempt,
+                StartedAt = startedAt,
+                FinishedAt = failedAt,
+                LastHeartbeatAt = failedAt,
+                Error = exception.Message
+            });
+        }
+        else
+        {
+            existing.Status = "Failed";
+            existing.WorkerId = _workerId;
+            existing.StartedAt = startedAt;
+            existing.FinishedAt = failedAt;
+            existing.LastHeartbeatAt = failedAt;
+            existing.Error = exception.Message;
+        }
+
+        await db.SaveChangesAsync(ct);
     }
 
     private static string FormatPartitions(IEnumerable<TopicPartition> partitions)
@@ -223,4 +334,9 @@ public sealed class JobEventsConsumer(
 
         return EventEnvelope.From(new JobRunCompleted(runId), occurredAt: occurredAt);
     }
+
+    private sealed record StepExecutionResult(
+        int Attempt,
+        DateTimeOffset StartedAt,
+        DateTimeOffset FinishedAt);
 }
