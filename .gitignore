@@ -45,8 +45,8 @@ appsettings.Local.json
 docker-compose.override.local.yml
 
 # Elasticsearch / Kafka / Postgres lokal volume dump'ları
-data/
-volumes/
+/data/
+/volumes/
 
 # k3d / kubeconfig
 kubeconfig*
