@@ -1,12 +1,13 @@
 using FlowForge.ControlPlane.Features.Jobs;
 using FlowForge.ControlPlane.Features.Runs;
 using FlowForge.ControlPlane.Inbox;
-using FlowForge.ControlPlane.Outbox;
+using FlowForge.Outbox;
 using Microsoft.EntityFrameworkCore;
 
 namespace FlowForge.ControlPlane.Data;
 
-public sealed class ControlPlaneDbContext(DbContextOptions<ControlPlaneDbContext> options) : DbContext(options)
+public sealed class ControlPlaneDbContext(DbContextOptions<ControlPlaneDbContext> options)
+    : DbContext(options), IOutboxDbContext
 {
     public DbSet<Job> Jobs => Set<Job>();
     public DbSet<JobStep> JobSteps => Set<JobStep>();

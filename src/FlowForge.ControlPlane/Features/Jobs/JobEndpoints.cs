@@ -2,7 +2,7 @@ using System.Text.Json;
 using FlowForge.Contracts;
 using FlowForge.ControlPlane.Data;
 using FlowForge.ControlPlane.Features.Runs;
-using FlowForge.ControlPlane.Outbox;
+using FlowForge.Outbox;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 

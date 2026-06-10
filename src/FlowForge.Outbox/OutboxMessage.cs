@@ -1,7 +1,7 @@
 using System.Text.Json;
 using FlowForge.Contracts;
 
-namespace FlowForge.ControlPlane.Outbox;
+namespace FlowForge.Outbox;
 
 public sealed class OutboxMessage
 {

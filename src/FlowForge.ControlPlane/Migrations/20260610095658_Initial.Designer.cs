@@ -168,7 +168,7 @@ namespace FlowForge.ControlPlane.Migrations
                     b.ToTable("processed_messages", (string)null);
                 });
 
-            modelBuilder.Entity("FlowForge.ControlPlane.Outbox.OutboxMessage", b =>
+            modelBuilder.Entity("FlowForge.Outbox.OutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()

@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FlowForge.Contracts\FlowForge.Contracts.csproj" />
+    <ProjectReference Include="..\FlowForge.Outbox\FlowForge.Outbox.csproj" />
   </ItemGroup>
 
   <ItemGroup>
