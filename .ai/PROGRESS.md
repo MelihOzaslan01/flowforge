@@ -110,3 +110,11 @@
 - **Not/risk:** Chaos flag'e dokunulmadı; bu nedenle runtime smoke başarısız retry üretmedi. Retry tükenince exception tekrar fırlatılıyor ve mesaj Kafka tarafından yeniden teslim edilmeye bırakılıyor; DLQ yönlendirmesi 2.3 kapsamına bırakıldı.
 
 ---
+
+## 2026-06-10 — Görev 2.2 takip düzeltmesi: inbox ve retry testi
+- **Yapılan:** Inbox sırası yeniden kontrol edildi: TX'siz ön-kontrol `RunStepWithRetryAsync` çağrısından önce çalışıyor; başarılı retry sonrası TX içinde ikinci inbox kontrolü de korunuyor. Retry sarmalı `StepRetryPipeline` helper'ına çıkarıldı ve unit test eklendi; başarılı satırın `AttemptCount` değeri toplam deneme sayısı olarak dönüyor.
+- **Dokunulan dosyalar:** yeni: `src/FlowForge.Worker/Steps/StepRetryPipeline.cs`, `tests/FlowForge.UnitTests/StepRetryPipelineTests.cs` | değişen: `src/FlowForge.Worker/Kafka/JobEventsConsumer.cs`, `tests/FlowForge.UnitTests/FlowForge.UnitTests.csproj`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅; `dotnet test .\tests\FlowForge.UnitTests\FlowForge.UnitTests.csproj --no-build` ✅ — 4 test geçti; yeni test iki kez hata, üçüncü denemede başarı, attempt listesi `1,2,3`, failed attempts `1,2`, backoff `2s,4s` doğruluyor. `docker compose up -d --build` ✅; `scripts/smoke.sh` ✅; outbox lag `0`; smoke run kayıtlarında chaos kapalı olduğu için tüm step'ler `Completed`, `attempt_count=1`.
+- **Not/risk:** Unit test Worker executable projesini test host'a taşımamak için retry helper dosyasını linked compile olarak kullanıyor; böylece aynı kaynak kod test ediliyor ama Worker host/EF bağımlılıkları unit test sürecine karışmıyor.
+
+---

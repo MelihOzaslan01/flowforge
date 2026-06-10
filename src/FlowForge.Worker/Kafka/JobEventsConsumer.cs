@@ -6,8 +6,6 @@ using FlowForge.Worker.Data;
 using FlowForge.Worker.Steps;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Polly;
-using Polly.Retry;
 
 namespace FlowForge.Worker.Kafka;
 
@@ -193,43 +191,22 @@ public sealed class JobEventsConsumer(
             .MaxAsync(ct) ?? 0;
 
         var currentStartedAt = DateTimeOffset.UtcNow;
-        var attemptsStarted = 0;
 
-        var pipeline = new ResiliencePipelineBuilder()
-            .AddRetry(new RetryStrategyOptions
+        var result = await StepRetryPipeline.ExecuteAsync(
+            previousAttempts,
+            step.MaxRetries,
+            async (_, token) =>
             {
-                MaxRetryAttempts = Math.Max(0, step.MaxRetries),
-                Delay = TimeSpan.FromSeconds(2),
-                BackoffType = DelayBackoffType.Exponential,
-                UseJitter = false,
-                OnRetry = async args =>
-                {
-                    var attempt = previousAttempts + args.AttemptNumber + 1;
-                    await RecordFailedAttemptAsync(runId, step, attempt, currentStartedAt, args.Outcome.Exception!, ct);
-                    currentStartedAt = DateTimeOffset.UtcNow;
-                }
-            })
-            .Build();
-
-        try
-        {
-            await pipeline.ExecuteAsync(async token =>
-            {
-                attemptsStarted++;
                 await executor.RunAsync(step, token);
-            }, ct);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            var attempt = previousAttempts + attemptsStarted;
-            await RecordFailedAttemptAsync(runId, step, attempt, currentStartedAt, ex, ct);
-            throw;
-        }
+            },
+            async (attempt, token) =>
+            {
+                await RecordFailedAttemptAsync(runId, step, attempt.Attempt, currentStartedAt, attempt.Exception, token);
+                currentStartedAt = DateTimeOffset.UtcNow;
+            },
+            ct);
 
-        return new StepExecutionResult(
-            previousAttempts + attemptsStarted,
-            currentStartedAt,
-            DateTimeOffset.UtcNow);
+        return new StepExecutionResult(result.Attempt, currentStartedAt, DateTimeOffset.UtcNow);
     }
 
     private async Task RecordFailedAttemptAsync(
