@@ -1,0 +1,68 @@
+﻿# ============================
+# FlowForge .gitignore (.NET 9)
+# ============================
+
+# Build çıktıları
+bin/
+obj/
+artifacts/
+*.binlog
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.DotSettings.user
+
+# Rider / VS test & profil
+TestResults/
+*.coverage
+*.coveragexml
+coverage/
+*.trx
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+# (NuGet.config repo'da KALIR)
+
+# EF Core
+*.edmx.diagram
+
+# Lokal ayar ve secret'lar — ASLA push'lanmaz
+appsettings.Development.json
+appsettings.Local.json
+*.pfx
+*.key
+.env
+.env.*
+!.env.example
+
+# Docker lokal kalıntıları
+docker-compose.override.local.yml
+
+# Elasticsearch / Kafka / Postgres lokal volume dump'ları
+data/
+volumes/
+
+# k3d / kubeconfig
+kubeconfig*
+*.kubeconfig
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Loglar
+logs/
+*.log
+
+# AI session dosyalarındaki olası hassas içerik için kural:
+# .ai/ klasörü REPO'DA KALIR (bilinçli karar — bkz. README).
+# Yalnızca taslak/karalama oturumları hariç tutulur:
+.ai/sessions/_draft*
+.ai/scratch/

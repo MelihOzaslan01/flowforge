@@ -1,0 +1,2 @@
+CREATE DATABASE control_db;
+CREATE DATABASE worker_db;

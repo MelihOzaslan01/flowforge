@@ -1,0 +1,24 @@
+﻿# FlowForge .gitattributes
+# Satır sonları: repo'da LF, checkout'ta LF (Windows'ta da — .NET ve Docker için sorunsuz)
+* text=auto eol=lf
+
+# Markdown ve kaynak dosyaları kesin UTF-8
+*.md   text working-tree-encoding=UTF-8
+*.cs   text diff=csharp
+*.csproj text
+*.sln  text
+*.json text
+*.yml  text
+*.yaml text
+*.sql  text
+*.sh   text eol=lf
+
+# Windows scriptleri CRLF ister
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+
+# Binary'ler
+*.png  binary
+*.gif  binary
+*.jpg  binary
+*.pfx  binary
