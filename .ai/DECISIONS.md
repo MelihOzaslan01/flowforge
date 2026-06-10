@@ -24,3 +24,10 @@
 - **Alternatifler:** Aggregate bazlı atlama düşünüldü; fakat aynı batch içinde aggregate gruplama/atlama karmaşıklığı Faz 1 kapsamı için değmez. Basit fail-fast davranış ordering varsayımını daha açık korur.
 - **Etki:** `src/FlowForge.Outbox/OutboxPublisher.cs` davranışı değişir. Tasarım §5.4 ile uyumludur; hatta `SaveChangesAsync` çağrısını batch sonuna taşıyarak örnek kalıba daha çok yaklaşır.
 - **Durum:** ⏳ İnceleme bekliyor
+
+## D-002 — 2026-06-10 — StepCompleted carries step definitions
+- **Bağlam:** Görev 1.6 Worker, sonraki step'i `StepCompleted` eventinden çalıştıracak ve worker stateless kalacak. Worker_db şeması yalnızca `job_step_runs`, `outbox_messages` ve `processed_messages` içerdiği için worker'ın sonraki step tanımına erişmesi event payload'ına bağlı.
+- **Karar:** `StepCompleted` payload'ı `runId`, `stepNo`, `output` alanlarına ek olarak `steps[]` taşıyacak. Böylece `JobRunRequested` ile gelen step listesi saga zinciri boyunca korunur.
+- **Alternatifler:** Worker_db'ye job definition tablosu eklemek reddedildi; tasarım §6.2 worker_db şemasını genişletirdi. ControlPlane'den job tanımı çekmek reddedildi; worker'ı ControlPlane'e runtime bağımlı yapardı.
+- **Etki:** `src/FlowForge.Contracts/StepCompleted.cs`, ilgili unit test ve Worker event üretimi etkilenir. Event adı değişmez; yalnızca payload genişler.
+- **Durum:** ⏳ İnceleme bekliyor

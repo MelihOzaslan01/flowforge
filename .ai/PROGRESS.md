@@ -54,3 +54,11 @@
 - **Not/risk:** NuGet paketleri `Confluent.Kafka 2.6.1`, `Microsoft.EntityFrameworkCore 9.0.4` ve hosting/options paketleri eklendi. Migration şeması değişmedi; model snapshot shared `FlowForge.Outbox.OutboxMessage` namespace'ine uyumlu hale getirildi.
 
 ---
+
+## 2026-06-10 — Görev 1.6: Worker
+- **Yapılan:** Worker için `worker_db` EF veri katmanı, `Initial` migration, Kafka consumer loop, `StepExecutor`, inbox idempotency ve outbox saga event üretimi eklendi. Consumer config `flowforge-workers`, `EnableAutoCommit=false`, `CooperativeSticky`; başarı yolunda transaction commit edildikten sonra en son Kafka offset commit ediliyor.
+- **Dokunulan dosyalar:** yeni: `src/FlowForge.Worker/Data/*`, `src/FlowForge.Worker/Kafka/*`, `src/FlowForge.Worker/Steps/*`, `src/FlowForge.Worker/Migrations/*`, `.ai/sessions/2026-06-10-gorev-1.6.md` | değişen: `src/FlowForge.Worker/FlowForge.Worker.csproj`, `src/FlowForge.Worker/Program.cs`, `src/FlowForge.Worker/appsettings.json`, `src/FlowForge.Contracts/StepCompleted.cs`, `tests/FlowForge.UnitTests/EventEnvelopeTests.cs`, `src/FlowForge.Outbox/ProcessedMessage.cs`, `src/FlowForge.ControlPlane/Data/ControlPlaneDbContext.cs`, `src/FlowForge.ControlPlane/Migrations/*`, `.ai/BACKLOG.md`, `.ai/PROGRESS.md`, `.ai/DECISIONS.md` | silinen: `src/FlowForge.Worker/Worker.cs`, service-local `ProcessedMessage` entity'leri
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyarı, 0 hata; `dotnet test .\tests\FlowForge.UnitTests\FlowForge.UnitTests.csproj` ✅ — 3 test geçti; migration ve consumer config/success-path kodu kontrol edildi.
+- **Not/risk:** `StepCompleted` payload'ı stateless worker için `steps[]` taşıyacak şekilde genişletildi ve D-002 karar kaydı eklendi. Faz 1 kapsamına uygun olarak chaos/retry uygulanmadı.
+
+---

@@ -69,7 +69,7 @@ public sealed class EventEnvelopeTests
         Assert.Equal("StepStarted", EventEnvelope.From(new StepStarted(runId, 1, "worker-1")).EventType);
         Assert.Equal(
             "StepCompleted",
-            EventEnvelope.From(new StepCompleted(runId, 1, JsonSerializer.SerializeToElement(new { ok = true }, ContractJson.Options))).EventType);
+            EventEnvelope.From(new StepCompleted(runId, 1, JsonSerializer.SerializeToElement(new { ok = true }, ContractJson.Options), [])).EventType);
         Assert.Equal("StepFailed", EventEnvelope.From(new StepFailed(runId, 3, "boom", 3)).EventType);
         Assert.Equal("CompensateStep", EventEnvelope.From(new CompensateStep(runId, 2)).EventType);
         Assert.Equal("StepCompensated", EventEnvelope.From(new StepCompensated(runId, 2)).EventType);

@@ -144,7 +144,7 @@ namespace FlowForge.ControlPlane.Migrations
                     b.ToTable("job_runs", (string)null);
                 });
 
-            modelBuilder.Entity("FlowForge.ControlPlane.Inbox.ProcessedMessage", b =>
+            modelBuilder.Entity("FlowForge.Outbox.ProcessedMessage", b =>
                 {
                     b.Property<Guid>("MessageId")
                         .ValueGeneratedOnAdd()

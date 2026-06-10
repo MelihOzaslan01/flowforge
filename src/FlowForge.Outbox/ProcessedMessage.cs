@@ -1,4 +1,4 @@
-namespace FlowForge.ControlPlane.Inbox;
+namespace FlowForge.Outbox;
 
 public sealed class ProcessedMessage
 {

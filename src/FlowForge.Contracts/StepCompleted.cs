@@ -5,4 +5,5 @@ namespace FlowForge.Contracts;
 public sealed record StepCompleted(
     Guid RunId,
     int StepNo,
-    JsonElement Output);
+    JsonElement Output,
+    IReadOnlyList<JobStepDefinition> Steps);
