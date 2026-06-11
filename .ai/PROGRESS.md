@@ -166,3 +166,11 @@
 - **Not/risk:** İlk canlı kill step 1'e denk geldiği için compensation beklenmedi; ikinci test step 2 üzerinde compensation yolunu doğruladı.
 
 ---
+
+## 2026-06-11 — Görev 2.7: Testcontainers integration testleri
+- **Yapılan:** `FlowForge.IntegrationTests` projesi Testcontainers tabanli gercek PostgreSQL + Kafka fixture'iyle dolduruldu; collection fixture tek container setini paylasiyor, her test `MigrateAsync` + truncate + topic reset ile temiz basliyor. Tasarim §10'daki uc test birebir eklendi: `Outbox_event_survives_kafka_downtime`, `Duplicate_message_is_processed_exactly_once`, `Failed_step_triggers_full_compensation_chain`; testler gercek `OutboxPublisher`, `JobEventsConsumer`, `ZombieStepCleaner` ve `StepExecutor` kodunu host DI uzerinden calistiriyor.
+- **Dokunulan dosyalar:** yeni: `tests/FlowForge.IntegrationTests/FlowForgeFixture.cs`, `tests/FlowForge.IntegrationTests/IntegrationTestHost.cs`, `tests/FlowForge.IntegrationTests/FlowForgeIntegrationTests.cs`, `.ai/sessions/2026-06-11-gorev-2.7.md` | degisen: `tests/FlowForge.IntegrationTests/FlowForge.IntegrationTests.csproj`, `.ai/BACKLOG.md`, `.ai/PROGRESS.md` | silinen: `tests/FlowForge.IntegrationTests/UnitTest1.cs`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyari, 0 hata; `dotnet test .\flowforge.sln` ✅ — 6 unit + 3 integration, toplam 9 test gecti; `docker compose up -d --build` ✅; `scripts/smoke.sh` ✅ — run `Completed`. Ara dogrulamada outbox downtime testi tek basina da ✅ gecti.
+- **Not/risk:** Testcontainers.Kafka builder'in `GetBootstrapAddress()` yolu bu ortamda 9092 mapping'i uretmedigi icin Kafka container'i Testcontainers generic `ContainerBuilder` ile compose'taki bilinen Apache Kafka KRaft ayarlarina denk kuruldu; bu karar D-007'ye islendi ve kullanilmayan `Testcontainers.Kafka` paketi kaldirildi. Dis test listener'i sabit `localhost:19093`; lokal makinede bu port baska surec tarafindan kullanilirsa test fixture'i port cakismasi verebilir.
+
+---

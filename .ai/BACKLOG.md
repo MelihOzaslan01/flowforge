@@ -21,7 +21,7 @@
 - [x] 2.4 Saga compensation zinciri (ters sıra, Compensate metodları)
 - [x] 2.5 Chaos flag + `monthly-sales-report-chaos` seed job'ı
 - [x] 2.6 Heartbeat + zombi adım temizleyici
-- [ ] 2.7 Testcontainers integration testleri (3 isimli test)
+- [x] 2.7 Testcontainers integration testleri (3 isimli test)
 - [ ] 2.8 MudBlazor dashboard (Jobs + RunDetail timeline)
 - [ ] **Faz 2 kapanış:** chaos run tam telafi üretiyor, `dotnet test` yeşil → `git tag v0.2`
 

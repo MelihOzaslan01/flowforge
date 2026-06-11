@@ -59,3 +59,10 @@
 - **Alternatifler:** Step listesini temizleyicide boş bırakmak reddedildi; compensation zinciri gerçek step tanımlarını kaybederdi. Orijinal mesaj redelivery'sini Kafka offset'e bırakmak reddedildi; crash sonrası aynı iş hem zombi `StepFailed` hem yeniden çalışma yoluna girebilirdi.
 - **Etki:** Worker DB migration'ları, `JobStepRun`, `JobEventsConsumer`, `StepHeartbeat` ve `ZombieStepCleaner` etkilenir. ControlPlane şeması değişmez.
 - **Durum:** ⏳ İnceleme bekliyor
+
+## D-007 — 2026-06-11 — Integration Kafka uses raw Testcontainers container
+- **Bağlam:** Görev 2.7 integration test fixture'ında `Testcontainers.Kafka` modülünün `KafkaBuilder`/`GetBootstrapAddress()` yolu bu Windows + Docker Desktop ortamında `9092/tcp` mapping'i üretmedi; custom listener ile de broker controller erişimi kararsız kaldı.
+- **Karar:** Integration test Kafka fixture'ı Testcontainers generic `ContainerBuilder` ile `apache/kafka:3.9.0` KRaft container'ı olarak kuruldu. Ayarlar `docker-compose.yml` içindeki çalışan Kafka konfigürasyonunun test karşılığıdır; dış bootstrap adresi `localhost:19093` olarak sabitlendi.
+- **Alternatifler:** `Testcontainers.Kafka` paketini tutmak reddedildi; test kodu modül API'sini kullanmıyor ve boş paket bağımlılığı yanıltıcı olurdu. Kafka mantığını mocklamak reddedildi; 2.7'nin amacı gerçek consumer/publisher ve gerçek broker davranışını sınamak.
+- **Etki:** `tests/FlowForge.IntegrationTests/FlowForgeFixture.cs` ve integration test paket referansları etkilenir. Test hâlâ Testcontainers ile gerçek Kafka/PostgreSQL ayağa kaldırır; tasarım §10'un gerçek altyapı beklentisiyle uyumludur.
+- **Durum:** ⏳ İnceleme bekliyor
