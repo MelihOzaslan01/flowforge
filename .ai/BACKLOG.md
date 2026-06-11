@@ -27,7 +27,7 @@
 
 ## Faz 3 — Elasticsearch
 - [x] 3.1 Worker → flowforge.job.logs yapısal log üretimi
-- [ ] 3.2 LogIndexer: bulk indexing + index template + aylık index
+- [x] 3.2 LogIndexer: bulk indexing + index template + aylık index
 - [ ] 3.3 Compose'a elasticsearch + kibana
 - [ ] **Faz 3 kapanış:** Kibana'da runId timeline → `git tag v0.3`
 

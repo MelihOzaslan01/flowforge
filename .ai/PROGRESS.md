@@ -206,3 +206,11 @@
 - **Not/risk:** Ilk uygulamada DLQ icin kurulan nullable outbox `topic` desenini loglara da genelleyip ayni transaction guvencesi vermeyi secmistim; bu talimat sapmasiydi. Dogru karar D-009'a islendi: telemetri ve is/saga verisi farkli garanti siniflaridir; log outbox'u buyurse D-001 fail-fast davranisi nedeniyle saga event yayinini geciktirebilir.
 
 ---
+
+## 2026-06-11 — Görev 3.2: FlowForge.LogIndexer
+- **Yapılan:** `FlowForge.LogIndexer` .NET 9 Worker projesi eklendi ve solution'a dahil edildi. Servis `flowforge.job.logs` topic'ini `log-indexer` group ile `EnableAutoCommit=false` okuyup 500 kayit veya 2 sn dolunca tek ES bulk request'iyle `flowforge-logs-{yyyy.MM}` indexlerine yaziyor; bulk basarili olunca partition basina son offset commit ediliyor, hata olursa commit atilmadan batch retry ediliyor.
+- **Dokunulan dosyalar:** yeni: `src/FlowForge.LogIndexer/*`, `.ai/sessions/2026-06-11-gorev-3.2.md` | degisen: `flowforge.sln`, `docker-compose.yml`, `.ai/BACKLOG.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyari, 0 hata; `dotnet test .\flowforge.sln --no-build` ✅ — 7 unit + 3 integration, toplam 10 test; `docker compose up -d --build` ✅ — Elasticsearch, Kibana ve LogIndexer ayakta; `scripts/smoke.sh` ✅ — run `014b84f8-8b30-484d-b1d5-ca131f7b4e41` `Completed`; `curl http://localhost:9200/flowforge-logs-*/_count` ✅ — `count=24`; `curl http://localhost:5601/api/status` ✅ — `200`; LogIndexer loglari ✅ — template hazirlandi, bulk batchler indexlendi ve offsetler commit edildi.
+- **Not/risk:** 3.2 talimati compose'a ES/Kibana eklemeyi de kapsadigi icin compose bu gorevde degisti; ancak "SADECE 3.2" siniri nedeniyle backlog'daki 3.3 satiri isaretlenmedi. LogIndexer DB kullanmiyor; idempotency deterministik `_id` hash'i ile saglaniyor.
+
+---
