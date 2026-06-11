@@ -36,6 +36,7 @@ public sealed class WorkerDbContext(DbContextOptions<WorkerDbContext> options)
             entity.HasKey(message => message.Id);
             entity.Property(message => message.Id).HasColumnName("id");
             entity.Property(message => message.AggregateId).HasColumnName("aggregate_id");
+            entity.Property(message => message.Topic).HasColumnName("topic").HasMaxLength(200);
             entity.Property(message => message.EventType).HasColumnName("event_type").HasMaxLength(100).IsRequired();
             entity.Property(message => message.Payload).HasColumnName("payload").HasColumnType("jsonb");
             entity.Property(message => message.OccurredAt).HasColumnName("occurred_at").HasDefaultValueSql("now()");

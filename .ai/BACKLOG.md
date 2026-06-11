@@ -17,9 +17,9 @@
 ## Faz 2 — Dayanıklılık (Retry, DLQ, Saga, Test)
 - [x] 2.1 Worker replicas: 3, partition dağılımı loglarda
 - [x] 2.2 Polly retry (2s/4s/8s, max_retries job_steps'ten)
-- [ ] 2.3 DLQ yönlendirmesi + StepFailed eventi
-- [ ] 2.4 Saga compensation zinciri (ters sıra, Compensate metodları)
-- [ ] 2.5 Chaos flag + `monthly-sales-report-chaos` seed job'ı
+- [x] 2.3 DLQ yönlendirmesi + StepFailed eventi
+- [x] 2.4 Saga compensation zinciri (ters sıra, Compensate metodları)
+- [~] 2.5 Chaos flag + `monthly-sales-report-chaos` seed job'ı
 - [ ] 2.6 Heartbeat + zombi adım temizleyici
 - [ ] 2.7 Testcontainers integration testleri (3 isimli test)
 - [ ] 2.8 MudBlazor dashboard (Jobs + RunDetail timeline)

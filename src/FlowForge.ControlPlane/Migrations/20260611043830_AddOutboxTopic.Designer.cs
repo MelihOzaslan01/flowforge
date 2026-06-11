@@ -4,6 +4,7 @@ using System.Text.Json;
 using FlowForge.ControlPlane.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FlowForge.ControlPlane.Migrations
 {
     [DbContext(typeof(ControlPlaneDbContext))]
-    partial class ControlPlaneDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260611043830_AddOutboxTopic")]
+    partial class AddOutboxTopic
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -141,30 +144,6 @@ namespace FlowForge.ControlPlane.Migrations
                     b.ToTable("job_runs", (string)null);
                 });
 
-            modelBuilder.Entity("FlowForge.Outbox.ProcessedMessage", b =>
-                {
-                    b.Property<Guid>("MessageId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("message_id");
-
-                    b.Property<string>("Consumer")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("consumer");
-
-                    b.Property<DateTimeOffset>("ProcessedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("processed_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.HasKey("MessageId");
-
-                    b.ToTable("processed_messages", (string)null);
-                });
-
             modelBuilder.Entity("FlowForge.Outbox.OutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -215,6 +194,30 @@ namespace FlowForge.ControlPlane.Migrations
                         .HasFilter("published_at IS NULL");
 
                     b.ToTable("outbox_messages", (string)null);
+                });
+
+            modelBuilder.Entity("FlowForge.Outbox.ProcessedMessage", b =>
+                {
+                    b.Property<Guid>("MessageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("message_id");
+
+                    b.Property<string>("Consumer")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("consumer");
+
+                    b.Property<DateTimeOffset>("ProcessedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("MessageId");
+
+                    b.ToTable("processed_messages", (string)null);
                 });
 
             modelBuilder.Entity("FlowForge.ControlPlane.Features.Jobs.JobStep", b =>

@@ -102,12 +102,6 @@ public sealed class JobEventsConsumer(
             return;
         }
 
-        if (envelope.EventType is not nameof(JobRunRequested) and not nameof(StepCompleted))
-        {
-            consumer.Commit(result);
-            return;
-        }
-
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<WorkerDbContext>();
         var executor = scope.ServiceProvider.GetRequiredService<StepExecutor>();
@@ -115,6 +109,33 @@ public sealed class JobEventsConsumer(
         var alreadyProcessed = await db.ProcessedMessages
             .AnyAsync(message => message.MessageId == envelope.MessageId, ct);
         if (alreadyProcessed)
+        {
+            consumer.Commit(result);
+            return;
+        }
+
+        if (envelope.EventType == nameof(StepFailed))
+        {
+            await ProcessStepFailedAsync(db, envelope, ct);
+            consumer.Commit(result);
+            return;
+        }
+
+        if (envelope.EventType == nameof(CompensateStep))
+        {
+            await ProcessCompensateStepAsync(db, executor, envelope, ct);
+            consumer.Commit(result);
+            return;
+        }
+
+        if (envelope.EventType == nameof(StepCompensated))
+        {
+            await ProcessStepCompensatedAsync(db, envelope, ct);
+            consumer.Commit(result);
+            return;
+        }
+
+        if (envelope.EventType is not nameof(JobRunRequested) and not nameof(StepCompleted))
         {
             consumer.Commit(result);
             return;
@@ -136,7 +157,17 @@ public sealed class JobEventsConsumer(
             step.StepNo,
             result.TopicPartitionOffset);
 
-        var execution = await RunStepWithRetryAsync(db, executor, runId, step, ct);
+        StepExecutionResult execution;
+        try
+        {
+            execution = await RunStepWithRetryAsync(db, executor, runId, step, ct);
+        }
+        catch (StepRetriesExhaustedException ex)
+        {
+            await MoveToDlqAsync(db, envelope, runId, step, steps, ex, ct);
+            consumer.Commit(result);
+            return;
+        }
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
@@ -178,6 +209,144 @@ public sealed class JobEventsConsumer(
         consumer.Commit(result);
     }
 
+    private async Task ProcessStepFailedAsync(
+        WorkerDbContext db,
+        EventEnvelope envelope,
+        CancellationToken ct)
+    {
+        var failed = envelope.DeserializePayload<StepFailed>();
+        var nextEnvelope = CompensationChain.CreateAfterStepFailed(failed);
+        await SaveInboxAndOutboxAsync(db, envelope.MessageId, failed.RunId, nextEnvelope, ct);
+    }
+
+    private async Task ProcessCompensateStepAsync(
+        WorkerDbContext db,
+        StepExecutor executor,
+        EventEnvelope envelope,
+        CancellationToken ct)
+    {
+        var compensate = envelope.DeserializePayload<CompensateStep>();
+        var startedAt = DateTimeOffset.UtcNow;
+        var error = await TryCompensateAsync(executor, compensate, ct);
+        var compensatedAt = DateTimeOffset.UtcNow;
+        var nextEnvelope = CompensationChain.CreateAfterCompensateStep(compensate, compensatedAt);
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        var alreadyProcessed = await db.ProcessedMessages
+            .AnyAsync(message => message.MessageId == envelope.MessageId, ct);
+        if (alreadyProcessed)
+        {
+            await tx.RollbackAsync(ct);
+            return;
+        }
+
+        var previousAttempt = await db.JobStepRuns
+            .Where(run => run.RunId == compensate.RunId && run.StepNo == compensate.StepNo)
+            .Select(run => (int?)run.AttemptCount)
+            .MaxAsync(ct);
+        var nextAttempt = (previousAttempt ?? 0) + 1;
+
+        db.JobStepRuns.Add(new JobStepRun
+        {
+            Id = Guid.NewGuid(),
+            RunId = compensate.RunId,
+            StepNo = compensate.StepNo,
+            Status = "Compensated",
+            WorkerId = _workerId,
+            AttemptCount = nextAttempt,
+            StartedAt = startedAt,
+            FinishedAt = compensatedAt,
+            LastHeartbeatAt = compensatedAt,
+            Error = error
+        });
+
+        db.ProcessedMessages.Add(new ProcessedMessage
+        {
+            MessageId = envelope.MessageId,
+            Consumer = ConsumerName,
+            ProcessedAt = compensatedAt
+        });
+
+        db.OutboxMessages.Add(OutboxMessage.From(compensate.RunId, nextEnvelope));
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+
+    private async Task ProcessStepCompensatedAsync(
+        WorkerDbContext db,
+        EventEnvelope envelope,
+        CancellationToken ct)
+    {
+        var compensated = envelope.DeserializePayload<StepCompensated>();
+        var nextEnvelope = CompensationChain.CreateAfterStepCompensated(compensated);
+        await SaveInboxAndOutboxAsync(db, envelope.MessageId, compensated.RunId, nextEnvelope, ct);
+    }
+
+    private async Task SaveInboxAndOutboxAsync(
+        WorkerDbContext db,
+        Guid messageId,
+        Guid runId,
+        EventEnvelope nextEnvelope,
+        CancellationToken ct)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        var alreadyProcessed = await db.ProcessedMessages
+            .AnyAsync(message => message.MessageId == messageId, ct);
+        if (alreadyProcessed)
+        {
+            await tx.RollbackAsync(ct);
+            return;
+        }
+
+        db.ProcessedMessages.Add(new ProcessedMessage
+        {
+            MessageId = messageId,
+            Consumer = ConsumerName,
+            ProcessedAt = nextEnvelope.OccurredAt
+        });
+
+        db.OutboxMessages.Add(OutboxMessage.From(runId, nextEnvelope));
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+
+    private async Task<string?> TryCompensateAsync(
+        StepExecutor executor,
+        CompensateStep compensate,
+        CancellationToken ct)
+    {
+        var step = compensate.Steps.FirstOrDefault(candidate => candidate.StepNo == compensate.StepNo);
+        if (step is null)
+        {
+            var error = $"Step definition for compensation step {compensate.StepNo} was not found.";
+            logger.LogWarning(
+                "Compensation skipped for run {RunId}, step {StepNo}: {Error}",
+                compensate.RunId,
+                compensate.StepNo,
+                error);
+            return error;
+        }
+
+        try
+        {
+            await executor.CompensateAsync(step, ct);
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                ex,
+                "Compensation failed for run {RunId}, step {StepNo}; continuing compensation chain.",
+                compensate.RunId,
+                compensate.StepNo);
+            return ex.Message;
+        }
+    }
+
     private async Task<StepExecutionResult> RunStepWithRetryAsync(
         WorkerDbContext db,
         StepExecutor executor,
@@ -189,24 +358,103 @@ public sealed class JobEventsConsumer(
             .Where(run => run.RunId == runId && run.StepNo == step.StepNo)
             .Select(run => (int?)run.AttemptCount)
             .MaxAsync(ct) ?? 0;
+        if (previousAttempts >= step.MaxRetries + 1)
+        {
+            var lastError = await db.JobStepRuns
+                .AsNoTracking()
+                .Where(run => run.RunId == runId && run.StepNo == step.StepNo)
+                .OrderByDescending(run => run.AttemptCount)
+                .Select(run => run.Error)
+                .FirstOrDefaultAsync(ct);
+
+            throw new StepRetriesExhaustedException(
+                previousAttempts,
+                new InvalidOperationException(lastError ?? "Step retries already exhausted."));
+        }
 
         var currentStartedAt = DateTimeOffset.UtcNow;
 
-        var result = await StepRetryPipeline.ExecuteAsync(
-            previousAttempts,
-            step.MaxRetries,
-            async (_, token) =>
-            {
-                await executor.RunAsync(step, token);
-            },
-            async (attempt, token) =>
-            {
-                await RecordFailedAttemptAsync(runId, step, attempt.Attempt, currentStartedAt, attempt.Exception, token);
-                currentStartedAt = DateTimeOffset.UtcNow;
-            },
-            ct);
+        StepRetryResult result;
+        try
+        {
+            result = await StepRetryPipeline.ExecuteAsync(
+                previousAttempts,
+                step.MaxRetries,
+                async (_, token) =>
+                {
+                    await executor.RunAsync(step, token);
+                },
+                async (attempt, token) =>
+                {
+                    await RecordFailedAttemptAsync(runId, step, attempt.Attempt, currentStartedAt, attempt.Exception, token);
+                    currentStartedAt = DateTimeOffset.UtcNow;
+                },
+                ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var attempts = await db.JobStepRuns
+                .AsNoTracking()
+                .Where(run => run.RunId == runId && run.StepNo == step.StepNo)
+                .Select(run => (int?)run.AttemptCount)
+                .MaxAsync(ct) ?? previousAttempts + step.MaxRetries + 1;
+
+            throw new StepRetriesExhaustedException(attempts, ex);
+        }
 
         return new StepExecutionResult(result.Attempt, currentStartedAt, DateTimeOffset.UtcNow);
+    }
+
+    private async Task MoveToDlqAsync(
+        WorkerDbContext db,
+        EventEnvelope envelope,
+        Guid runId,
+        JobStepDefinition step,
+        IReadOnlyList<JobStepDefinition> steps,
+        StepRetriesExhaustedException exception,
+        CancellationToken ct)
+    {
+        var failedAt = DateTimeOffset.UtcNow;
+        var error = exception.InnerException?.Message ?? exception.Message;
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        var alreadyProcessed = await db.ProcessedMessages
+            .AnyAsync(message => message.MessageId == envelope.MessageId, ct);
+        if (alreadyProcessed)
+        {
+            await tx.RollbackAsync(ct);
+            return;
+        }
+
+        db.ProcessedMessages.Add(new ProcessedMessage
+        {
+            MessageId = envelope.MessageId,
+            Consumer = ConsumerName,
+            ProcessedAt = failedAt
+        });
+
+        db.OutboxMessages.Add(DeadLetterMessageFactory.Create(
+            runId,
+            envelope,
+            exception.InnerException ?? exception,
+            exception.Attempts,
+            _workerId,
+            failedAt));
+
+        var stepFailedEnvelope = EventEnvelope.From(
+            new StepFailed(runId, step.StepNo, error, exception.Attempts, steps),
+            occurredAt: failedAt.AddTicks(1));
+        db.OutboxMessages.Add(OutboxMessage.From(runId, stepFailedEnvelope));
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+
+        logger.LogError(
+            exception.InnerException,
+            "Retries exhausted for run {RunId}, step {StepNo}; message moved to DLQ and StepFailed was queued.",
+            runId,
+            step.StepNo);
     }
 
     private async Task RecordFailedAttemptAsync(
@@ -316,4 +564,10 @@ public sealed class JobEventsConsumer(
         int Attempt,
         DateTimeOffset StartedAt,
         DateTimeOffset FinishedAt);
+
+    private sealed class StepRetriesExhaustedException(int attempts, Exception innerException)
+        : Exception("Step retries exhausted.", innerException)
+    {
+        public int Attempts { get; } = attempts;
+    }
 }

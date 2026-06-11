@@ -31,3 +31,24 @@
 - **Alternatifler:** Worker_db'ye job definition tablosu eklemek reddedildi; tasarım §6.2 worker_db şemasını genişletirdi. ControlPlane'den job tanımı çekmek reddedildi; worker'ı ControlPlane'e runtime bağımlı yapardı.
 - **Etki:** `src/FlowForge.Contracts/StepCompleted.cs`, ilgili unit test ve Worker event üretimi etkilenir. Event adı değişmez; yalnızca payload genişler.
 - **Durum:** ⏳ İnceleme bekliyor
+
+## D-003 — 2026-06-11 — Outbox topic column for DLQ publishing
+- **Bağlam:** Görev 2.3 retry tükendiğinde orijinal mesajın DLQ topic'ine kayıpsız aktarılması ve `StepFailed` eventinin aynı güvenceyle yayınlanması gerekiyor. Mevcut outbox yalnızca varsayılan `flowforge.job.events` topic'ine publish ediyordu.
+- **Karar:** `outbox_messages` tablosuna nullable `topic` kolonu eklendi. `null` değeri varsayılan `flowforge.job.events` anlamına gelir; DLQ kopyası `topic=flowforge.job.events.dlq` ve `aggregate_id=runId` ile, `StepFailed` ise varsayılan topic ile aynı transaction'da outbox'a yazılır. OutboxPublisher fail-fast davranışı topic'ten bağımsız korunur.
+- **Alternatifler:** DLQ'ya worker içinden direkt Kafka produce etmek reddedildi; produce ve DB transaction arasında crash olursa DLQ kaydı ya da `StepFailed` kaydı kaybolabilir/ayrışabilirdi.
+- **Etki:** İki DB migration'ı, shared outbox entity/publisher ve Worker retry-exhausted yolu etkilenir. Varsayılan topic davranışı `topic IS NULL` ile geriye dönük uyumludur.
+- **Durum:** ⏳ İnceleme bekliyor
+
+## D-004 — 2026-06-11 — Compensation retry is out of scope
+- **Bağlam:** Görev 2.4 compensation zincirinde `CompensateStep` işlemi başarısız olabilir. Faz 2 hedefi ters sıra saga akışını kurmak; compensation retry politikası ayrıca tasarlanmadı.
+- **Karar:** Compensation adımlarında retry yapılmayacak. `StepExecutor.CompensateAsync` hata verirse WARN loglanır, `job_step_runs` satırına `Compensated` status'ü ve hata metni yazılır, zincir `StepCompensated` ile devam eder.
+- **Alternatifler:** Compensation için Polly retry eklemek reddedildi; retry sayısı/backoff/idempotency semantiği Faz 2 kapsamı dışı ve ana retry davranışını karmaşıklaştırırdı. Zinciri durdurmak reddedildi; başarısız iş akışının terminal `JobRunFailed` projeksiyonuna ulaşmasını engellerdi.
+- **Etki:** `src/FlowForge.Worker/Steps/StepExecutor.cs` ve `src/FlowForge.Worker/Kafka/JobEventsConsumer.cs` davranışı etkilenir. Bu karar compensation güvenilirliğini değil, saga kapanışını önceliklendirir.
+- **Durum:** ⏳ İnceleme bekliyor
+
+## D-005 — 2026-06-11 — Chaos seed uses no retry on failing step
+- **Bağlam:** Görev 2.5 canlı doğrulamada `monthly-sales-report-chaos` job'ının 5+ tetiklemede en az bir `Failed` run üretmesi bekleniyor. `chaos_fail_rate=0.3` ve varsayılan `maxRetries=3` birlikte kalırsa bir run'ın gerçekten tükenme olasılığı yaklaşık `0.3^4`, yani yüzde 0.8 olur.
+- **Karar:** Chaos seed job'ında yalnız `GenerateReport` adımı `chaos_fail_rate=0.3`, `duration_ms=2000` ve `maxRetries=0` ile oluşturuldu. Böylece chaos exception retry mekanizmasına normal hata gibi girer, ama canlı smoke kısa sürede DLQ/compensation yolunu görebilir. Mevcut `monthly-sales-report` job'ına dokunulmadı.
+- **Alternatifler:** Varsayılan `maxRetries=3` ile bırakmak reddedildi; 5+ run şartında Failed gözlemek pratik olarak güvenilmezdi. `chaos_fail_rate` değerini yükseltmek reddedildi; görev tanımı açıkça `0.3` istedi.
+- **Etki:** `src/FlowForge.ControlPlane/Data/ControlPlaneSeeder.cs` seed verisi etkilenir. Runtime sözleşme değişmez; yalnız demo/test job'ının retry sayısı farklıdır.
+- **Durum:** ⏳ İnceleme bekliyor

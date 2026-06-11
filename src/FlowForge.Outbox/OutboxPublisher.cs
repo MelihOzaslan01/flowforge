@@ -77,7 +77,7 @@ public sealed class OutboxPublisher<TDbContext>(
         try
         {
             await producer.ProduceAsync(
-                options.Value.Topic,
+                message.Topic ?? options.Value.Topic,
                 new Message<string, string>
                 {
                     Key = message.AggregateId.ToString(),

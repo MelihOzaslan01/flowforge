@@ -118,3 +118,27 @@
 - **Not/risk:** Unit test Worker executable projesini test host'a taşımamak için retry helper dosyasını linked compile olarak kullanıyor; böylece aynı kaynak kod test ediliyor ama Worker host/EF bağımlılıkları unit test sürecine karışmıyor.
 
 ---
+
+## 2026-06-11 — Görev 2.3: DLQ yönlendirmesi + StepFailed eventi
+- **Yapılan:** `outbox_messages` tablosuna iki DB için nullable `topic` kolonu eklendi; `OutboxPublisher` satır topic'i varsa ona, yoksa varsayılan `flowforge.job.events` topic'ine publish ediyor ve fail-fast batch davranışı topic'ten bağımsız korunuyor. Worker retry tükendiğinde DLQ kopyasını `aggregate_id=runId`, `topic=flowforge.job.events.dlq` ve original message + `exception/attempts/workerId/occurredAt` metadata'sı ile outbox'a yazıyor; ardından aynı transaction'da `StepFailed` ve `processed_messages` ekleniyor, commit sonrası offset commit ediliyor.
+- **Dokunulan dosyalar:** yeni: `src/FlowForge.Worker/Kafka/DeadLetterMessageFactory.cs`, `src/FlowForge.ControlPlane/Migrations/20260611043830_AddOutboxTopic*`, `src/FlowForge.Worker/Migrations/20260611043853_AddOutboxTopic*`, `tests/FlowForge.UnitTests/DeadLetterMessageFactoryTests.cs`, `.ai/sessions/2026-06-11-gorev-2.3.md` | değişen: `src/FlowForge.Outbox/OutboxMessage.cs`, `src/FlowForge.Outbox/OutboxPublisher.cs`, `src/FlowForge.ControlPlane/Data/ControlPlaneDbContext.cs`, `src/FlowForge.ControlPlane/Migrations/ControlPlaneDbContextModelSnapshot.cs`, `src/FlowForge.Worker/Data/WorkerDbContext.cs`, `src/FlowForge.Worker/Kafka/JobEventsConsumer.cs`, `src/FlowForge.Worker/Migrations/WorkerDbContextModelSnapshot.cs`, `tests/FlowForge.UnitTests/FlowForge.UnitTests.csproj`, `.ai/BACKLOG.md`, `.ai/DECISIONS.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyarı, 0 hata; `dotnet test .\tests\FlowForge.UnitTests\FlowForge.UnitTests.csproj --no-build` ✅ — 5 test geçti; kod kontrolünde `message.Topic ?? options.Value.Topic`, iki DB migration'ında nullable `topic`, DLQ+StepFailed+processed_messages aynı transaction ve offset commit'in transaction sonrası olduğu doğrulandı.
+- **Not/risk:** Talimat gereği canlı DLQ/chaos testi yapılmadı; 2.5'te chaos flag ile doğrulanacak. `StepFailed` şimdilik yayınlanıyor ama compensation consumer'ı 2.4 kapsamında eklenecek.
+
+---
+
+## 2026-06-11 — Görev 2.4: Saga compensation zinciri
+- **Yapılan:** Worker artık `StepFailed`, `CompensateStep` ve `StepCompensated` eventlerini tüketiyor. `StepFailed(N)` sonrası `N>1` ise `CompensateStep(N-1)`, `N=1` ise `JobRunFailed`; `CompensateStep(k)` sonrası best-effort `StepExecutor.CompensateAsync` + `job_step_runs=Compensated` + `StepCompensated(k)`; `StepCompensated(k)` sonrası `k>1` ise `CompensateStep(k-1)`, `k=1` ise `JobRunFailed` üretiliyor.
+- **Dokunulan dosyalar:** yeni: `src/FlowForge.Worker/Kafka/CompensationChain.cs`, `tests/FlowForge.UnitTests/CompensationChainTests.cs`, `.ai/sessions/2026-06-11-gorev-2.4.md` | değişen: `src/FlowForge.Contracts/StepFailed.cs`, `src/FlowForge.Contracts/CompensateStep.cs`, `src/FlowForge.Contracts/StepCompensated.cs`, `src/FlowForge.Worker/Kafka/JobEventsConsumer.cs`, `src/FlowForge.Worker/Steps/StepExecutor.cs`, `tests/FlowForge.UnitTests/EventEnvelopeTests.cs`, `tests/FlowForge.UnitTests/FlowForge.UnitTests.csproj`, `.ai/BACKLOG.md`, `.ai/DECISIONS.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyarı, 0 hata; `dotnet test .\tests\FlowForge.UnitTests\FlowForge.UnitTests.csproj --no-build` ✅ — 6 test geçti; kod kontrolünde compensation eventlerinin inbox ön-kontrol → iş → TX(yaz+inbox+outbox) → commit → offset kalıbını kullandığı ve projeksiyon consumer'ına dokunulmadığı doğrulandı.
+- **Not/risk:** Compensation retry bilinçli olarak eklenmedi; D-004'e göre hata WARN loglanıp zincir sürdürülüyor. Canlı chaos/compensation doğrulaması 2.5 kapsamına kaldı.
+
+---
+
+## 2026-06-11 — Görev 2.5: Chaos flag + chaos seed job
+- **Yapılan:** `StepExecutor` step config içinden `duration_ms` ve `chaos_fail_rate` okur hale getirildi; her denemede `Random.Shared.NextDouble() < chaos_fail_rate` ise `ChaosException` fırlatıyor ve mevcut retry/DLQ akışı bunu normal hata gibi işliyor. Seed'e idempotent `monthly-sales-report-chaos` job'ı eklendi; aynı 4 adımı kullanıyor, süreleri config ile yarıya indirilmiş ve `GenerateReport` adımı `chaos_fail_rate=0.3` taşıyor.
+- **Dokunulan dosyalar:** yeni: `scripts/chaos-smoke.sh`, `.ai/sessions/2026-06-11-gorev-2.5.md` | değişen: `src/FlowForge.Worker/Steps/StepExecutor.cs`, `src/FlowForge.ControlPlane/Data/ControlPlaneSeeder.cs`, `.ai/BACKLOG.md`, `.ai/DECISIONS.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyarı, 0 hata; `dotnet test .\tests\FlowForge.UnitTests\FlowForge.UnitTests.csproj --no-build` ✅ — 6 test geçti; `git diff --check` ✅. Canlı doğrulama denendi ama `docker compose up -d --build` hem normal hem izinli çalıştırmada Docker Desktop pipe'ı bulunamadığı için başlayamadı: `open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified`.
+- **Not/risk:** 2.5 `[~]` bırakıldı; canlı koşul için Docker Desktop çalışınca `docker compose up -d --build` ve ardından `scripts/chaos-smoke.sh` çalıştırılmalı. D-005'e göre chaos job'ın `GenerateReport` adımı `maxRetries=0`; aksi halde `0.3` oranla 5+ run içinde Failed gözlemek pratik olarak güvenilmez.
+
+---

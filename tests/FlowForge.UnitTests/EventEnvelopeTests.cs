@@ -64,15 +64,24 @@ public sealed class EventEnvelopeTests
     public void Event_type_names_match_design_document()
     {
         var runId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var steps = new[]
+        {
+            new JobStepDefinition(
+                Guid.NewGuid(),
+                1,
+                "ExtractData",
+                JsonSerializer.SerializeToElement(new { }, ContractJson.Options),
+                3)
+        };
 
         Assert.Equal("JobRunRequested", EventEnvelope.From(new JobRunRequested(runId, Guid.NewGuid(), [])).EventType);
         Assert.Equal("StepStarted", EventEnvelope.From(new StepStarted(runId, 1, "worker-1")).EventType);
         Assert.Equal(
             "StepCompleted",
             EventEnvelope.From(new StepCompleted(runId, 1, JsonSerializer.SerializeToElement(new { ok = true }, ContractJson.Options), [])).EventType);
-        Assert.Equal("StepFailed", EventEnvelope.From(new StepFailed(runId, 3, "boom", 3)).EventType);
-        Assert.Equal("CompensateStep", EventEnvelope.From(new CompensateStep(runId, 2)).EventType);
-        Assert.Equal("StepCompensated", EventEnvelope.From(new StepCompensated(runId, 2)).EventType);
+        Assert.Equal("StepFailed", EventEnvelope.From(new StepFailed(runId, 3, "boom", 3, steps)).EventType);
+        Assert.Equal("CompensateStep", EventEnvelope.From(new CompensateStep(runId, 2, 3, steps)).EventType);
+        Assert.Equal("StepCompensated", EventEnvelope.From(new StepCompensated(runId, 2, 3, steps)).EventType);
         Assert.Equal("JobRunCompleted", EventEnvelope.From(new JobRunCompleted(runId)).EventType);
         Assert.Equal("JobRunFailed", EventEnvelope.From(new JobRunFailed(runId, 3, "GenerateReport failed")).EventType);
     }

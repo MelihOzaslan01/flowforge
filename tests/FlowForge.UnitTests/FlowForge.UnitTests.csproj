@@ -21,7 +21,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\FlowForge.Contracts\FlowForge.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\FlowForge.Outbox\FlowForge.Outbox.csproj" />
     <Compile Include="..\..\src\FlowForge.Worker\Steps\StepRetryPipeline.cs" Link="StepRetryPipeline.cs" />
+    <Compile Include="..\..\src\FlowForge.Worker\Kafka\CompensationChain.cs" Link="CompensationChain.cs" />
+    <Compile Include="..\..\src\FlowForge.Worker\Kafka\DeadLetterMessageFactory.cs" Link="DeadLetterMessageFactory.cs" />
   </ItemGroup>
 
 </Project>
