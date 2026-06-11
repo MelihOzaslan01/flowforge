@@ -27,6 +27,27 @@
 docker compose up -d --build
 ./scripts/smoke.sh          # triggers a run, waits for Completed
 # Kafka UI → http://localhost:8080 | API/Swagger → http://localhost:5000
+# Kibana → http://localhost:5601 | Elasticsearch → http://localhost:9200
+```
+
+## Searching logs in Kibana
+
+After `docker compose up -d --build` and a successful smoke run, open Kibana at
+`http://localhost:5601`. Create a data view from **Stack Management → Data Views**
+with:
+
+- Name: `FlowForge Logs`
+- Index pattern: `flowforge-logs-*`
+- Timestamp field: `timestamp`
+
+Example KQL queries in Discover:
+
+```text
+runId : "014b84f8-8b30-484d-b1d5-ca131f7b4e41"
+```
+
+```text
+level : "Error" or message : "compensated"
 ```
 
 ## Architecture

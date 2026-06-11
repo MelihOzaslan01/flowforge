@@ -214,3 +214,11 @@
 - **Not/risk:** 3.2 talimati compose'a ES/Kibana eklemeyi de kapsadigi icin compose bu gorevde degisti; ancak "SADECE 3.2" siniri nedeniyle backlog'daki 3.3 satiri isaretlenmedi. LogIndexer DB kullanmiyor; idempotency deterministik `_id` hash'i ile saglaniyor.
 
 ---
+
+## 2026-06-11 — Görev 3.3: Kibana arama dokümantasyonu ve template doğrulama
+- **Yapılan:** LogIndexer startup index template kodu ve canli Elasticsearch template'i kontrol edildi; tasarim §8.2 mapping'i birebir mevcut. README'ye `Searching logs in Kibana` mini bolumu eklendi: `flowforge-logs-*` data view kurulumu ve iki ornek KQL sorgusu.
+- **Dokunulan dosyalar:** yeni: `.ai/sessions/2026-06-11-gorev-3.3.md` | degisen: `README.md`, `.ai/BACKLOG.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `curl http://localhost:9200/_index_template/flowforge-logs-template` ✅ — template mevcut; `runId`, `jobName`, `stepType`, `level`, `workerId` keyword; `message`, `error` text; `stepNo`, `attempt` integer; `durationMs` long; `timestamp` date. `git diff --check` ✅.
+- **Not/risk:** Kod degisikligi gerekmedi; 3.2'deki template implementasyonu dogru oldugu icin 3.3 dokumantasyon ve canli dogrulama ile kapandi.
+
+---
