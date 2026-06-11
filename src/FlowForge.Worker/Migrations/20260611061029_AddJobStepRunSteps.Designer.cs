@@ -4,6 +4,7 @@ using System.Text.Json;
 using FlowForge.Worker.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FlowForge.Worker.Migrations
 {
     [DbContext(typeof(WorkerDbContext))]
-    partial class WorkerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260611061029_AddJobStepRunSteps")]
+    partial class AddJobStepRunSteps
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -129,10 +132,6 @@ namespace FlowForge.Worker.Migrations
                     b.Property<Guid>("RunId")
                         .HasColumnType("uuid")
                         .HasColumnName("run_id");
-
-                    b.Property<Guid?>("SourceMessageId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("source_message_id");
 
                     b.Property<DateTimeOffset>("StartedAt")
                         .ValueGeneratedOnAdd()

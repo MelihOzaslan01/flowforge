@@ -160,7 +160,7 @@ public sealed class JobEventsConsumer(
         StepExecutionResult execution;
         try
         {
-            execution = await RunStepWithRetryAsync(db, executor, runId, step, ct);
+            execution = await RunStepWithRetryAsync(db, executor, envelope.MessageId, runId, step, steps, ct);
         }
         catch (StepRetriesExhaustedException ex)
         {
@@ -180,18 +180,38 @@ public sealed class JobEventsConsumer(
             return;
         }
 
-        db.JobStepRuns.Add(new JobStepRun
+        var completedRun = await db.JobStepRuns.SingleOrDefaultAsync(
+            run => run.RunId == runId && run.StepNo == step.StepNo && run.AttemptCount == execution.Attempt,
+            ct);
+
+        if (completedRun is null)
         {
-            Id = Guid.NewGuid(),
-            RunId = runId,
-            StepNo = step.StepNo,
-            Status = "Completed",
-            WorkerId = _workerId,
-            AttemptCount = execution.Attempt,
-            StartedAt = execution.StartedAt,
-            FinishedAt = execution.FinishedAt,
-            LastHeartbeatAt = execution.FinishedAt
-        });
+            db.JobStepRuns.Add(new JobStepRun
+            {
+                Id = Guid.NewGuid(),
+                RunId = runId,
+                SourceMessageId = envelope.MessageId,
+                StepNo = step.StepNo,
+                Status = "Completed",
+                WorkerId = _workerId,
+                AttemptCount = execution.Attempt,
+                StartedAt = execution.StartedAt,
+                FinishedAt = execution.FinishedAt,
+                LastHeartbeatAt = execution.FinishedAt,
+                Steps = CreateStepsDocument(steps)
+            });
+        }
+        else
+        {
+            completedRun.Status = "Completed";
+            completedRun.SourceMessageId = envelope.MessageId;
+            completedRun.WorkerId = _workerId;
+            completedRun.StartedAt = execution.StartedAt;
+            completedRun.FinishedAt = execution.FinishedAt;
+            completedRun.LastHeartbeatAt = execution.FinishedAt;
+            completedRun.Error = null;
+            completedRun.Steps = CreateStepsDocument(steps);
+        }
 
         db.ProcessedMessages.Add(new ProcessedMessage
         {
@@ -350,8 +370,10 @@ public sealed class JobEventsConsumer(
     private async Task<StepExecutionResult> RunStepWithRetryAsync(
         WorkerDbContext db,
         StepExecutor executor,
+        Guid messageId,
         Guid runId,
         JobStepDefinition step,
+        IReadOnlyList<JobStepDefinition> steps,
         CancellationToken ct)
     {
         var previousAttempts = await db.JobStepRuns
@@ -380,8 +402,18 @@ public sealed class JobEventsConsumer(
             result = await StepRetryPipeline.ExecuteAsync(
                 previousAttempts,
                 step.MaxRetries,
-                async (_, token) =>
+                async (attempt, token) =>
                 {
+                    currentStartedAt = DateTimeOffset.UtcNow;
+                    await RecordRunningAttemptAsync(messageId, runId, step, steps, attempt, currentStartedAt, token);
+                    await using var heartbeat = await StepHeartbeat.StartAsync(
+                        scopes,
+                        runId,
+                        step.StepNo,
+                        attempt,
+                        TimeSpan.FromSeconds(5),
+                        logger,
+                        token);
                     await executor.RunAsync(step, token);
                 },
                 async (attempt, token) =>
@@ -457,6 +489,53 @@ public sealed class JobEventsConsumer(
             step.StepNo);
     }
 
+    private async Task RecordRunningAttemptAsync(
+        Guid messageId,
+        Guid runId,
+        JobStepDefinition step,
+        IReadOnlyList<JobStepDefinition> steps,
+        int attempt,
+        DateTimeOffset startedAt,
+        CancellationToken ct)
+    {
+        using var scope = scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<WorkerDbContext>();
+        var existing = await db.JobStepRuns.SingleOrDefaultAsync(
+            run => run.RunId == runId && run.StepNo == step.StepNo && run.AttemptCount == attempt,
+            ct);
+
+        if (existing is null)
+        {
+            db.JobStepRuns.Add(new JobStepRun
+            {
+                Id = Guid.NewGuid(),
+                RunId = runId,
+                SourceMessageId = messageId,
+                StepNo = step.StepNo,
+                Status = "Running",
+                WorkerId = _workerId,
+                AttemptCount = attempt,
+                StartedAt = startedAt,
+                FinishedAt = null,
+                LastHeartbeatAt = startedAt,
+                Steps = CreateStepsDocument(steps)
+            });
+        }
+        else
+        {
+            existing.Status = "Running";
+            existing.SourceMessageId = messageId;
+            existing.WorkerId = _workerId;
+            existing.StartedAt = startedAt;
+            existing.FinishedAt = null;
+            existing.LastHeartbeatAt = startedAt;
+            existing.Error = null;
+            existing.Steps = CreateStepsDocument(steps);
+        }
+
+        await db.SaveChangesAsync(ct);
+    }
+
     private async Task RecordFailedAttemptAsync(
         Guid runId,
         JobStepDefinition step,
@@ -493,7 +572,8 @@ public sealed class JobEventsConsumer(
                 StartedAt = startedAt,
                 FinishedAt = failedAt,
                 LastHeartbeatAt = failedAt,
-                Error = exception.Message
+                Error = exception.Message,
+                Steps = CreateStepsDocument([step])
             });
         }
         else
@@ -507,6 +587,11 @@ public sealed class JobEventsConsumer(
         }
 
         await db.SaveChangesAsync(ct);
+    }
+
+    private static JsonDocument CreateStepsDocument(IReadOnlyList<JobStepDefinition> steps)
+    {
+        return JsonSerializer.SerializeToDocument(steps, ContractJson.Options);
     }
 
     private static string FormatPartitions(IEnumerable<TopicPartition> partitions)

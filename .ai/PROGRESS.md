@@ -142,3 +142,19 @@
 - **Not/risk:** 2.5 `[~]` bırakıldı; canlı koşul için Docker Desktop çalışınca `docker compose up -d --build` ve ardından `scripts/chaos-smoke.sh` çalıştırılmalı. D-005'e göre chaos job'ın `GenerateReport` adımı `maxRetries=0`; aksi halde `0.3` oranla 5+ run içinde Failed gözlemek pratik olarak güvenilmez.
 
 ---
+
+## 2026-06-11 — Görev 2.5 takip: canlı chaos doğrulaması
+- **Yapılan:** Kullanıcı `scripts/chaos-smoke.sh`/canlı testlerin başarıyla geçtiğini bildirdi. 2.5 backlog durumu `[~]` → `[x]` olarak güncellendi.
+- **Dokunulan dosyalar:** değişen: `.ai/BACKLOG.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** Kullanıcı doğrulaması: chaos job 5+ tetikleme ve Failed run için DLQ, ters sıra compensation satırları, `job_runs.status=Failed`/`failed_step` kontrolleri başarılı.
+- **Not/risk:** 2.6 Heartbeat + zombi temizleyiciye geçildi.
+
+---
+
+## 2026-06-11 — Görev 2.6: Heartbeat + zombi adım temizleyici
+- **Yapılan:** Worker artık step çalıştırmadan önce `job_step_runs` içinde `Running` satırı açıyor; bu satır 5 sn'de bir heartbeat ile `last_heartbeat_at` güncelliyor ve başarı/başarısızlıkta aynı satır terminal duruma çekiliyor. Worker startup'ta `Running` ve heartbeat'i 60 sn'den eski satırları `Failed` yapan `ZombieStepCleaner` eklendi; cleaner aynı transaction'da `StepFailed` outbox kaydı ve kaynak mesaj için `processed_messages` kaydı yazıyor.
+- **Dokunulan dosyalar:** yeni: `src/FlowForge.Worker/Steps/StepHeartbeat.cs`, `src/FlowForge.Worker/Steps/ZombieStepCleaner.cs`, `src/FlowForge.Worker/Migrations/20260611061029_AddJobStepRunSteps*`, `src/FlowForge.Worker/Migrations/20260611061220_AddJobStepRunSourceMessage*`, `.ai/sessions/2026-06-11-gorev-2.6.md` | değişen: `src/FlowForge.Worker/Steps/JobStepRun.cs`, `src/FlowForge.Worker/Data/WorkerDbContext.cs`, `src/FlowForge.Worker/Kafka/JobEventsConsumer.cs`, `src/FlowForge.Worker/Program.cs`, `src/FlowForge.Worker/Migrations/WorkerDbContextModelSnapshot.cs`, `.ai/BACKLOG.md`, `.ai/DECISIONS.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyarı, 0 hata; `dotnet test .\tests\FlowForge.UnitTests\FlowForge.UnitTests.csproj --no-build` ✅ — 6 test geçti. Kod kontrolünde heartbeat intervalinin 5 sn, zombi eşiğinin 60 sn, cleaner transaction'ında `Failed` + `StepFailed` outbox + `processed_messages` yazıldığı doğrulandı.
+- **Not/risk:** Zombi senaryosu canlı crash/pod-kill ile doğrulanmadı; ileride 4.3 chaos-pod-kill veya integration test kapsamına alınabilir.
+
+---

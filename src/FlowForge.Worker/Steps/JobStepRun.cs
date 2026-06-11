@@ -1,9 +1,12 @@
+using System.Text.Json;
+
 namespace FlowForge.Worker.Steps;
 
 public sealed class JobStepRun
 {
     public Guid Id { get; set; }
     public Guid RunId { get; set; }
+    public Guid? SourceMessageId { get; set; }
     public int StepNo { get; set; }
     public required string Status { get; set; }
     public required string WorkerId { get; set; }
@@ -12,4 +15,5 @@ public sealed class JobStepRun
     public DateTimeOffset? FinishedAt { get; set; }
     public DateTimeOffset LastHeartbeatAt { get; set; } = DateTimeOffset.UtcNow;
     public string? Error { get; set; }
+    public JsonDocument? Steps { get; set; }
 }

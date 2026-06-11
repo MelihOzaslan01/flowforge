@@ -19,6 +19,7 @@ public sealed class WorkerDbContext(DbContextOptions<WorkerDbContext> options)
             entity.HasKey(run => run.Id);
             entity.Property(run => run.Id).HasColumnName("id");
             entity.Property(run => run.RunId).HasColumnName("run_id");
+            entity.Property(run => run.SourceMessageId).HasColumnName("source_message_id");
             entity.Property(run => run.StepNo).HasColumnName("step_no");
             entity.Property(run => run.Status).HasColumnName("status").HasMaxLength(30).IsRequired();
             entity.Property(run => run.WorkerId).HasColumnName("worker_id").HasMaxLength(100).IsRequired();
@@ -27,6 +28,7 @@ public sealed class WorkerDbContext(DbContextOptions<WorkerDbContext> options)
             entity.Property(run => run.FinishedAt).HasColumnName("finished_at");
             entity.Property(run => run.LastHeartbeatAt).HasColumnName("last_heartbeat_at").HasDefaultValueSql("now()");
             entity.Property(run => run.Error).HasColumnName("error");
+            entity.Property(run => run.Steps).HasColumnName("steps").HasColumnType("jsonb");
             entity.HasIndex(run => new { run.RunId, run.StepNo, run.AttemptCount }).IsUnique();
         });
 

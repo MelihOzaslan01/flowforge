@@ -19,8 +19,8 @@
 - [x] 2.2 Polly retry (2s/4s/8s, max_retries job_steps'ten)
 - [x] 2.3 DLQ yönlendirmesi + StepFailed eventi
 - [x] 2.4 Saga compensation zinciri (ters sıra, Compensate metodları)
-- [~] 2.5 Chaos flag + `monthly-sales-report-chaos` seed job'ı
-- [ ] 2.6 Heartbeat + zombi adım temizleyici
+- [x] 2.5 Chaos flag + `monthly-sales-report-chaos` seed job'ı
+- [x] 2.6 Heartbeat + zombi adım temizleyici
 - [ ] 2.7 Testcontainers integration testleri (3 isimli test)
 - [ ] 2.8 MudBlazor dashboard (Jobs + RunDetail timeline)
 - [ ] **Faz 2 kapanış:** chaos run tam telafi üretiyor, `dotnet test` yeşil → `git tag v0.2`

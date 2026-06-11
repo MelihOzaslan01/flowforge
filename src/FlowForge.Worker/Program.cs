@@ -11,6 +11,7 @@ builder.Services.AddDbContext<WorkerDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("WorkerDb")));
 builder.Services.AddScoped<StepExecutor>();
 builder.Services.AddHostedService<JobEventsConsumer>();
+builder.Services.AddHostedService<ZombieStepCleaner>();
 builder.Services.AddOutboxPublisher<WorkerDbContext>(builder.Configuration.GetSection("Kafka"));
 
 var host = builder.Build();
