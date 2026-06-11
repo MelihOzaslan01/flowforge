@@ -190,3 +190,11 @@
 - **Not/risk:** `v0.2` tag'i kapanis commit'ine lokal olarak eklenecek; push kullanici onayi gerektirir ve yapilmadi.
 
 ---
+
+## 2026-06-11 — Görev 3.1: Worker yapısal log üretimi
+- **Yapılan:** Worker step baslangic, basari, hata, zombi kapanisi ve compensation akislari icin `flowforge.job.logs` topic'ine outbox uzerinden `WorkerStepLog` kaydi uretir hale getirildi. Log payload'i tasarim §8.2 alanlarini tasiyor: `runId`, `jobName`, `stepNo`, `stepType`, `level`, `workerId`, `message`, `error`, `attempt`, `durationMs`, `timestamp`.
+- **Dokunulan dosyalar:** yeni: `src/FlowForge.Worker/Kafka/WorkerStepLogFactory.cs`, `tests/FlowForge.UnitTests/WorkerStepLogFactoryTests.cs`, `.ai/sessions/2026-06-11-gorev-3.1.md` | degisen: `src/FlowForge.Worker/Kafka/JobEventsConsumer.cs`, `tests/FlowForge.UnitTests/FlowForge.UnitTests.csproj`, `.ai/BACKLOG.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅; `dotnet test .\flowforge.sln --no-build` ✅ — 7 unit + 3 integration, toplam 10 test; `docker compose up -d --build` ✅; `scripts/smoke.sh` ✅ — run `180babcd-0d28-4078-bbbe-96281df25a6a` `Completed`; `worker_db.outbox_messages` ✅ — `flowforge.job.logs` kayitlari publish edilmis; Kafka `flowforge.job.logs` consumer ✅ — structured log mesajlari okundu.
+- **Not/risk:** Worker eventleri job adini tasimadigi icin `jobName` su an `null`; index mapping bunu kabul eder. Gerekirse ileride event payload'i veya worker read modeliyle zenginlestirilebilir.
+
+---

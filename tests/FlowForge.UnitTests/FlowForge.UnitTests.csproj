@@ -25,6 +25,7 @@
     <Compile Include="..\..\src\FlowForge.Worker\Steps\StepRetryPipeline.cs" Link="StepRetryPipeline.cs" />
     <Compile Include="..\..\src\FlowForge.Worker\Kafka\CompensationChain.cs" Link="CompensationChain.cs" />
     <Compile Include="..\..\src\FlowForge.Worker\Kafka\DeadLetterMessageFactory.cs" Link="DeadLetterMessageFactory.cs" />
+    <Compile Include="..\..\src\FlowForge.Worker\Kafka\WorkerStepLogFactory.cs" Link="WorkerStepLogFactory.cs" />
   </ItemGroup>
 
 </Project>

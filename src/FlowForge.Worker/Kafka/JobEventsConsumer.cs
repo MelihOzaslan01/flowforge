@@ -229,6 +229,16 @@ public sealed class JobEventsConsumer(
 
         var nextEnvelope = CreateNextEnvelope(runId, step.StepNo, steps, execution.FinishedAt);
         db.OutboxMessages.Add(OutboxMessage.From(runId, nextEnvelope));
+        db.OutboxMessages.Add(WorkerStepLogFactory.Create(
+            runId,
+            step.StepNo,
+            step.StepType,
+            "Information",
+            _workerId,
+            $"Step {step.StepNo} completed.",
+            execution.Attempt,
+            execution.FinishedAt,
+            execution.StartedAt));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -311,6 +321,17 @@ public sealed class JobEventsConsumer(
 
         var failed = new StepFailed(runId, step.StepNo, error, running.AttemptCount, steps);
         db.OutboxMessages.Add(OutboxMessage.From(runId, EventEnvelope.From(failed, occurredAt: failedAt)));
+        db.OutboxMessages.Add(WorkerStepLogFactory.Create(
+            runId,
+            step.StepNo,
+            step.StepType,
+            "Error",
+            _workerId,
+            $"Step {step.StepNo} failed as zombie.",
+            running.AttemptCount,
+            failedAt,
+            running.StartedAt,
+            error));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -340,6 +361,7 @@ public sealed class JobEventsConsumer(
         CancellationToken ct)
     {
         var compensate = envelope.DeserializePayload<CompensateStep>();
+        var step = compensate.Steps.FirstOrDefault(candidate => candidate.StepNo == compensate.StepNo);
         var startedAt = DateTimeOffset.UtcNow;
         var error = await TryCompensateAsync(executor, compensate, ct);
         var compensatedAt = DateTimeOffset.UtcNow;
@@ -383,6 +405,17 @@ public sealed class JobEventsConsumer(
         });
 
         db.OutboxMessages.Add(OutboxMessage.From(compensate.RunId, nextEnvelope));
+        db.OutboxMessages.Add(WorkerStepLogFactory.Create(
+            compensate.RunId,
+            compensate.StepNo,
+            step?.StepType ?? "Unknown",
+            error is null ? "Information" : "Warning",
+            _workerId,
+            $"Step {compensate.StepNo} compensated.",
+            nextAttempt,
+            compensatedAt,
+            startedAt,
+            error));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -627,6 +660,16 @@ public sealed class JobEventsConsumer(
             existing.Steps = CreateStepsDocument(steps);
         }
 
+        db.OutboxMessages.Add(WorkerStepLogFactory.Create(
+            runId,
+            step.StepNo,
+            step.StepType,
+            "Information",
+            _workerId,
+            $"Step {step.StepNo} started.",
+            attempt,
+            startedAt));
+
         await db.SaveChangesAsync(ct);
     }
 
@@ -679,6 +722,18 @@ public sealed class JobEventsConsumer(
             existing.LastHeartbeatAt = failedAt;
             existing.Error = exception.Message;
         }
+
+        db.OutboxMessages.Add(WorkerStepLogFactory.Create(
+            runId,
+            step.StepNo,
+            step.StepType,
+            "Error",
+            _workerId,
+            $"Step {step.StepNo} attempt {attempt} failed.",
+            attempt,
+            failedAt,
+            startedAt,
+            exception.Message));
 
         await db.SaveChangesAsync(ct);
     }

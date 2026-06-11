@@ -26,7 +26,7 @@
 - [x] **Faz 2 kapanış:** chaos run tam telafi üretiyor, `dotnet test` yeşil → `git tag v0.2`
 
 ## Faz 3 — Elasticsearch
-- [ ] 3.1 Worker → flowforge.job.logs yapısal log üretimi
+- [x] 3.1 Worker → flowforge.job.logs yapısal log üretimi
 - [ ] 3.2 LogIndexer: bulk indexing + index template + aylık index
 - [ ] 3.3 Compose'a elasticsearch + kibana
 - [ ] **Faz 3 kapanış:** Kibana'da runId timeline → `git tag v0.3`
