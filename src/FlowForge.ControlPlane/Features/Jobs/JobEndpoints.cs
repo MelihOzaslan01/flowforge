@@ -1,8 +1,6 @@
 using System.Text.Json;
-using FlowForge.Contracts;
 using FlowForge.ControlPlane.Data;
 using FlowForge.ControlPlane.Features.Runs;
-using FlowForge.Outbox;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
@@ -96,60 +94,16 @@ public static class JobEndpoints
 
     private static async Task<Results<Accepted<RunCreatedResponse>, NotFound<string>, BadRequest<string>>> RunJobAsync(
         string name,
-        ControlPlaneDbContext db,
+        JobRunStarter starter,
         CancellationToken ct)
     {
-        var job = await db.Jobs
-            .Include(item => item.Steps)
-            .SingleOrDefaultAsync(item => item.Name == name, ct);
-
-        if (job is null)
+        var result = await starter.StartByNameAsync(name, ct);
+        return result.ErrorType switch
         {
-            return TypedResults.NotFound($"Job '{name}' was not found.");
-        }
-
-        if (!job.IsEnabled)
-        {
-            return TypedResults.BadRequest($"Job '{name}' is disabled.");
-        }
-
-        if (job.Steps.Count == 0)
-        {
-            return TypedResults.BadRequest($"Job '{name}' has no steps.");
-        }
-
-        var runId = Guid.NewGuid();
-        var requestedAt = DateTimeOffset.UtcNow;
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-        db.JobRuns.Add(new JobRun
-        {
-            Id = runId,
-            JobId = job.Id,
-            Status = "Scheduled",
-            RequestedAt = requestedAt
-        });
-
-        var requested = new JobRunRequested(
-            runId,
-            job.Id,
-            job.Steps
-                .OrderBy(step => step.StepNo)
-                .Select(step => new JobStepDefinition(
-                    step.Id,
-                    step.StepNo,
-                    step.StepType,
-                    step.Config.RootElement.Clone(),
-                    step.MaxRetries))
-                .ToList());
-
-        var envelope = EventEnvelope.From(requested, occurredAt: requestedAt);
-        db.OutboxMessages.Add(OutboxMessage.From(runId, envelope));
-
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-
-        return TypedResults.Accepted($"/api/runs/{runId}", new RunCreatedResponse(runId));
+            StartJobRunError.NotFound => TypedResults.NotFound(result.Error ?? $"Job '{name}' was not found."),
+            StartJobRunError.BadRequest => TypedResults.BadRequest(result.Error ?? $"Job '{name}' could not be started."),
+            _ => TypedResults.Accepted($"/api/runs/{result.RunId}", new RunCreatedResponse(result.RunId!.Value))
+        };
     }
 
     private static async Task<Results<Ok<RunResponse>, NotFound<string>>> GetRunAsync(

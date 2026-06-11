@@ -1,0 +1,159 @@
+@page "/"
+@implements IAsyncDisposable
+@inject DashboardQueries Queries
+@inject JobRunStarter Starter
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>FlowForge Jobs</PageTitle>
+
+<section class="ff-page">
+    <div class="ff-page-title">
+        <div>
+            <MudText Typo="Typo.h4" HtmlTag="h1">Jobs</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">@_updatedLabel</MudText>
+        </div>
+        <MudTooltip Text="Refresh">
+            <MudIconButton Icon="@Icons.Material.Filled.Refresh" Color="Color.Primary" OnClick="LoadAsync" Disabled="_loading" />
+        </MudTooltip>
+    </div>
+
+    <MudPaper Elevation="0" Class="ff-panel">
+        <MudTable Items="_jobs" Hover="true" Dense="true" Loading="_loading" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Job</MudTh>
+                <MudTh>Steps</MudTh>
+                <MudTh>Last runs</MudTh>
+                <MudTh Class="ff-actions">Run</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Job">
+                    <MudText Typo="Typo.subtitle2">@context.Name</MudText>
+                </MudTd>
+                <MudTd DataLabel="Steps">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@context.StepCount</MudChip>
+                </MudTd>
+                <MudTd DataLabel="Last runs">
+                    <div class="ff-run-chip-row">
+                        @if (context.LastRuns.Count == 0)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">No runs</MudText>
+                        }
+                        else
+                        {
+                            @foreach (var run in context.LastRuns)
+                            {
+                                <MudTooltip Text="@RunTooltip(run)">
+                                    <MudChip T="string"
+                                             Size="Size.Small"
+                                             Color="@StatusColor(run.Status)"
+                                             Variant="@StatusVariant(run.Status)"
+                                             Href="@($"/runs/{run.Id}")">
+                                        @run.Status
+                                    </MudChip>
+                                </MudTooltip>
+                            }
+                        }
+                    </div>
+                </MudTd>
+                <MudTd DataLabel="Run" Class="ff-actions">
+                    <MudTooltip Text="Run now">
+                        <MudIconButton Icon="@Icons.Material.Filled.PlayArrow"
+                                       Color="Color.Primary"
+                                       Disabled="@_runningJobs.Contains(context.Id)"
+                                       OnClick="@(() => RunNowAsync(context))" />
+                    </MudTooltip>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+</section>
+
+@code {
+    private readonly HashSet<Guid> _runningJobs = [];
+    private readonly CancellationTokenSource _pollingCts = new();
+    private IReadOnlyList<JobDashboardItem> _jobs = [];
+    private bool _loading;
+    private string _updatedLabel = "Loading";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _ = PollAsync(_pollingCts.Token);
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _jobs = await Queries.GetJobsAsync(_pollingCts.Token);
+            _updatedLabel = $"Updated {DateTimeOffset.Now:HH:mm:ss}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RunNowAsync(JobDashboardItem job)
+    {
+        _runningJobs.Add(job.Id);
+        try
+        {
+            var result = await Starter.StartByIdAsync(job.Id, _pollingCts.Token);
+            if (result.RunId is { } runId)
+            {
+                Snackbar.Add($"{job.Name} started", Severity.Success);
+                Navigation.NavigateTo($"/runs/{runId}");
+                return;
+            }
+
+            Snackbar.Add(result.Error ?? "Job could not be started.", Severity.Warning);
+        }
+        finally
+        {
+            _runningJobs.Remove(job.Id);
+            await LoadAsync();
+        }
+    }
+
+    private async Task PollAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                await InvokeAsync(LoadAsync);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+        }
+    }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Completed" => Color.Success,
+        "Failed" => Color.Error,
+        "Scheduled" => Color.Info,
+        _ => Color.Warning
+    };
+
+    private static Variant StatusVariant(string status) =>
+        status is "Completed" or "Failed" ? Variant.Filled : Variant.Outlined;
+
+    private static string RunTooltip(RunSummary run)
+    {
+        var failed = run.FailedStep is null ? string.Empty : $" | failed step {run.FailedStep}";
+        return $"{run.RequestedAt:HH:mm:ss} | {run.Status}{failed}";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _pollingCts.CancelAsync();
+        _pollingCts.Dispose();
+    }
+}

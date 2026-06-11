@@ -1,0 +1,192 @@
+@page "/runs/{RunId:guid}"
+@implements IAsyncDisposable
+@inject DashboardQueries Queries
+@inject NavigationManager Navigation
+
+<PageTitle>FlowForge Run</PageTitle>
+
+<section class="ff-page">
+    <div class="ff-page-title">
+        <div>
+            <MudText Typo="Typo.h4" HtmlTag="h1">@(_run?.JobName ?? "Run")</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">@RunId</MudText>
+        </div>
+        <div class="ff-title-actions">
+            <MudTooltip Text="Jobs">
+                <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/" Color="Color.Primary" />
+            </MudTooltip>
+            <MudTooltip Text="Refresh">
+                <MudIconButton Icon="@Icons.Material.Filled.Refresh" Color="Color.Primary" OnClick="LoadAsync" Disabled="_loading" />
+            </MudTooltip>
+        </div>
+    </div>
+
+    @if (_run is null && !_loading)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">Run not found.</MudAlert>
+    }
+    else
+    {
+        <MudPaper Elevation="0" Class="ff-panel ff-run-header">
+            <div class="ff-run-meta">
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Status</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="@StatusColor(_run?.Status)" Variant="@StatusVariant(_run?.Status)">
+                        @_run?.Status
+                    </MudChip>
+                </div>
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Requested</MudText>
+                    <MudText Typo="Typo.body2">@FormatTime(_run?.RequestedAt)</MudText>
+                </div>
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Finished</MudText>
+                    <MudText Typo="Typo.body2">@FormatTime(_run?.FinishedAt)</MudText>
+                </div>
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Failed step</MudText>
+                    <MudText Typo="Typo.body2">@(_run?.FailedStep?.ToString() ?? "-")</MudText>
+                </div>
+            </div>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="ff-panel">
+            @if (_loading && _run is null)
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+            }
+            else if (_run?.Steps.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Waiting for step activity.</MudText>
+            }
+            else
+            {
+                <MudTimeline TimelineOrientation="TimelineOrientation.Vertical" TimelinePosition="TimelinePosition.Left">
+                    @foreach (var step in _run?.Steps ?? [])
+                    {
+                        <MudTimelineItem Color="@StatusColor(step.Status)"
+                                         Variant="@TimelineVariant(step.Status)"
+                                         Icon="@StatusIcon(step.Status)">
+                            <div class="@TimelineClass(step.Status)">
+                                <div class="ff-step-main">
+                                    <MudText Typo="Typo.subtitle2">Step @step.StepNo</MudText>
+                                    <MudChip T="string"
+                                             Size="Size.Small"
+                                             Color="@StatusColor(step.Status)"
+                                             Variant="@StatusVariant(step.Status)">
+                                        @step.Status
+                                    </MudChip>
+                                </div>
+                                <div class="ff-step-grid">
+                                    <div>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Attempt</MudText>
+                                        <MudText Typo="Typo.body2">@step.AttemptCount</MudText>
+                                    </div>
+                                    <div>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Started</MudText>
+                                        <MudText Typo="Typo.body2">@FormatTime(step.StartedAt)</MudText>
+                                    </div>
+                                    <div>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Finished</MudText>
+                                        <MudText Typo="Typo.body2">@FormatTime(step.FinishedAt)</MudText>
+                                    </div>
+                                    <div>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Worker</MudText>
+                                        <MudText Typo="Typo.body2" Class="ff-worker">@step.WorkerId</MudText>
+                                    </div>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(step.Error))
+                                {
+                                    <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Outlined" Class="ff-step-error">
+                                        @step.Error
+                                    </MudAlert>
+                                }
+                            </div>
+                        </MudTimelineItem>
+                    }
+                </MudTimeline>
+            }
+        </MudPaper>
+    }
+</section>
+
+@code {
+    [Parameter]
+    public Guid RunId { get; set; }
+
+    private readonly CancellationTokenSource _pollingCts = new();
+    private RunDetailViewModel? _run;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _ = PollAsync(_pollingCts.Token);
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _run = await Queries.GetRunDetailAsync(RunId, _pollingCts.Token);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task PollAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                await InvokeAsync(LoadAsync);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+        }
+    }
+
+    private static Color StatusColor(string? status) => status switch
+    {
+        "Completed" => Color.Success,
+        "Compensated" => Color.Secondary,
+        "Failed" => Color.Error,
+        "Running" => Color.Warning,
+        "Scheduled" => Color.Info,
+        _ => Color.Default
+    };
+
+    private static Variant StatusVariant(string? status) =>
+        status is "Completed" or "Compensated" or "Failed" ? Variant.Filled : Variant.Outlined;
+
+    private static Variant TimelineVariant(string status) =>
+        status == "Compensated" ? Variant.Filled : Variant.Outlined;
+
+    private static string StatusIcon(string status) => status switch
+    {
+        "Completed" => Icons.Material.Filled.Check,
+        "Compensated" => Icons.Material.Filled.Undo,
+        "Failed" => Icons.Material.Filled.Error,
+        "Running" => Icons.Material.Filled.Sync,
+        _ => Icons.Material.Filled.Circle
+    };
+
+    private static string TimelineClass(string status) =>
+        status == "Compensated" ? "ff-step ff-step-compensated" : "ff-step";
+
+    private static string FormatTime(DateTimeOffset? value) =>
+        value is null ? "-" : value.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+
+    public async ValueTask DisposeAsync()
+    {
+        await _pollingCts.CancelAsync();
+        _pollingCts.Dispose();
+    }
+}

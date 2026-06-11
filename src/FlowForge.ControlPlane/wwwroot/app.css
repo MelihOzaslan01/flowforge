@@ -1,0 +1,131 @@
+html,
+body {
+    font-family: Inter, "Segoe UI", Arial, sans-serif;
+    background: #f5f7f9;
+    color: #17212b;
+}
+
+.ff-appbar {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.ff-brand {
+    font-weight: 700;
+    margin-left: 8px;
+}
+
+.ff-main {
+    min-height: 100vh;
+    background: #f5f7f9;
+}
+
+.ff-page {
+    width: min(1180px, calc(100vw - 32px));
+    margin: 0 auto;
+    padding: 32px 0 48px;
+}
+
+.ff-page-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.ff-title-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ff-panel {
+    border: 1px solid #d9e0e6;
+    border-radius: 6px;
+    padding: 18px;
+    overflow-x: auto;
+}
+
+.ff-actions {
+    width: 72px;
+    text-align: right;
+}
+
+.ff-run-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 32px;
+    align-items: center;
+}
+
+.ff-run-header {
+    margin-bottom: 18px;
+}
+
+.ff-run-meta {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    gap: 18px;
+}
+
+.ff-step {
+    border: 1px solid #d9e0e6;
+    border-radius: 6px;
+    padding: 14px;
+    background: #ffffff;
+}
+
+.ff-step-compensated {
+    border-color: #a7c8b4;
+    background: #f1f8f4;
+}
+
+.ff-step-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.ff-step-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    gap: 12px;
+}
+
+.ff-step-error {
+    margin-top: 12px;
+}
+
+.ff-worker {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+    .ff-page {
+        width: min(100vw - 20px, 1180px);
+        padding-top: 18px;
+    }
+
+    .ff-page-title {
+        align-items: flex-start;
+    }
+
+    .ff-run-meta,
+    .ff-step-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 520px) {
+    .ff-page-title {
+        flex-direction: column;
+    }
+
+    .ff-run-meta,
+    .ff-step-grid {
+        grid-template-columns: 1fr;
+    }
+}

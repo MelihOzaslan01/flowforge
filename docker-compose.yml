@@ -62,6 +62,7 @@ services:
     environment:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__ControlDb: Host=postgres;Port=5432;Database=control_db;Username=postgres;Password=flowforge
+      ConnectionStrings__WorkerDb: Host=postgres;Port=5432;Database=worker_db;Username=postgres;Password=flowforge
       Kafka__BootstrapServers: kafka:9092
     depends_on:
       postgres:

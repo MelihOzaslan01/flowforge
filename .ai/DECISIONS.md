@@ -66,3 +66,10 @@
 - **Alternatifler:** `Testcontainers.Kafka` paketini tutmak reddedildi; test kodu modül API'sini kullanmıyor ve boş paket bağımlılığı yanıltıcı olurdu. Kafka mantığını mocklamak reddedildi; 2.7'nin amacı gerçek consumer/publisher ve gerçek broker davranışını sınamak.
 - **Etki:** `tests/FlowForge.IntegrationTests/FlowForgeFixture.cs` ve integration test paket referansları etkilenir. Test hâlâ Testcontainers ile gerçek Kafka/PostgreSQL ayağa kaldırır; tasarım §10'un gerçek altyapı beklentisiyle uyumludur.
 - **Durum:** ⏳ İnceleme bekliyor
+
+## D-008 — 2026-06-11 — Dashboard reads worker_db directly
+- **Bağlam:** Görev 2.8 RunDetail sayfası step timeline'ı için `worker_db.job_step_runs` satırlarını göstermeli. Bu veri ControlPlane API projeksiyonunda yok ve Worker servisinin içinde tutuluyor.
+- **Karar:** ControlPlane içine read-only `WorkerReadDbContext` eklendi ve `ConnectionStrings:WorkerDb` ile worker_db'den sadece `job_step_runs` okuması yapıldı. Dashboard verisi aynı process içinde DbContext üzerinden okunur; API endpointleri ve Swagger aynen korunur.
+- **Alternatifler:** Dashboard'un mevcut HTTP API endpointleri üzerinden okuması reddedildi; aynı process içinde gereksiz network/serialization hop'u olur ve step verisi zaten API'de yok. Step verisini eventlerden ControlPlane projeksiyonuna almak reddedildi; daha doğru uzun vadeli model olsa da Faz 2 kapsamını aşar ve yeni projeksiyon/şema tasarımı gerektirir.
+- **Etki:** `src/FlowForge.ControlPlane/Data/WorkerReadDbContext.cs`, dashboard query servisi, appsettings ve compose connection stringleri etkilenir. Worker şeması değişmez; ControlPlane yalnız okuma yapar.
+- **Durum:** ⏳ İnceleme bekliyor

@@ -1,0 +1,47 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="_theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Dense="true" Class="ff-appbar">
+        <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Medium" />
+        <MudText Typo="Typo.subtitle1" Class="ff-brand">FlowForge</MudText>
+        <MudSpacer />
+        <MudTooltip Text="Jobs">
+            <MudIconButton Icon="@Icons.Material.Filled.FormatListBulleted" Href="/" Color="Color.Inherit" />
+        </MudTooltip>
+        <MudTooltip Text="Swagger">
+            <MudIconButton Icon="@Icons.Material.Filled.Api" Href="/swagger" Color="Color.Inherit" />
+        </MudTooltip>
+    </MudAppBar>
+
+    <MudMainContent Class="ff-main">
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#255F85",
+            Secondary = "#3B7A57",
+            Tertiary = "#A15C38",
+            AppbarBackground = "#17394F",
+            AppbarText = "#FFFFFF",
+            Background = "#F5F7F9",
+            Surface = "#FFFFFF",
+            TextPrimary = "#17212B",
+            TextSecondary = "#596875",
+            DrawerBackground = "#FFFFFF"
+        },
+        LayoutProperties = new LayoutProperties
+        {
+            DefaultBorderRadius = "6px"
+        }
+    };
+}
