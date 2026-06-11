@@ -182,3 +182,11 @@
 - **Not/risk:** In-app browser `iab` ve local Playwright/Chrome/Edge bulunamadigi icin screenshot alinmadi; HTTP 200 + DB timeline + smoke ile canli dogrulama yapildi. Canli DB'de eski idempotent seed nedeniyle chaos job step 3 `max_retries=3` gorunuyor; mevcut failed chaos run uzerinden compensation timeline dogrulandi, seed verisine 2.8 kapsaminda dokunulmadi.
 
 ---
+
+## 2026-06-11 — Faz 2 kapanış
+- **Yapılan:** Faz 2 kapanis kriterleri tamamlandi olarak isaretlendi. Tum 2.1-2.8 maddeleri `[x]`; canli chaos failed run compensation timeline'i ve outbox lag kontrolleri yeniden dogrulandi.
+- **Dokunulan dosyalar:** yeni: `.ai/sessions/2026-06-11-faz-2-kapanis.md` | degisen: `.ai/BACKLOG.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅; `dotnet test .\flowforge.sln --no-build` ✅ — 6 unit + 3 integration; `docker compose ps` ✅ — controlplane, 3 worker, kafka, postgres, kafka-ui ayakta; `http://localhost:5000/` ✅ — 200; failed chaos run `9204d40b-2e0a-447a-b682-d21e4689a075` ✅ — `failed_step=3`, worker timeline `1 Completed`, `2 Completed`, `3 Failed x4`, `2 Compensated`, `1 Compensated`; outbox lag ✅ — `control_db=0`, `worker_db=0`; `scripts/smoke.sh` ✅ — run `Completed`.
+- **Not/risk:** `v0.2` tag'i kapanis commit'ine lokal olarak eklenecek; push kullanici onayi gerektirir ve yapilmadi.
+
+---
