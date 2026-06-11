@@ -198,3 +198,11 @@
 - **Not/risk:** Worker eventleri job adini tasimadigi icin `jobName` su an `null`; index mapping bunu kabul eder. Gerekirse ileride event payload'i veya worker read modeliyle zenginlestirilebilir.
 
 ---
+
+## 2026-06-11 — Görev 3.1 düzeltmesi: job logları outbox dışı
+- **Yapılan:** 3.1'deki `WorkerStepLog` outbox kayitlari kaldirildi; Worker artik `JobLogPublisher` ile mevcut singleton Kafka producer'i paylasarak `flowforge.job.logs` topic'ine dogrudan fire-and-forget `Produce` ediyor. Key `runId`; delivery handler ve synchronous produce hatalari sadece WARN logluyor, publish await edilmiyor.
+- **Dokunulan dosyalar:** yeni: `src/FlowForge.Worker/Kafka/JobLogPublisher.cs`, `.ai/sessions/2026-06-11-gorev-3.1-duzeltme.md` | degisen: `src/FlowForge.Worker/Kafka/JobEventsConsumer.cs`, `src/FlowForge.Worker/Kafka/WorkerStepLogFactory.cs`, `src/FlowForge.Worker/Program.cs`, `tests/FlowForge.IntegrationTests/IntegrationTestHost.cs`, `tests/FlowForge.UnitTests/WorkerStepLogFactoryTests.cs`, `.ai/DECISIONS.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyari, 0 hata; `dotnet test .\flowforge.sln --no-build` ✅ — 7 unit + 3 integration, toplam 10 test; `docker compose up -d --build` ✅; `scripts/smoke.sh` ✅ — run `ba325e73-16c1-435a-a48a-32d2139d074f` `Completed`; `worker_db.outbox_messages` ✅ — bu run icin `topic='flowforge.job.logs'` sayisi `0`; Kafka `flowforge.job.logs` ✅ — ayni run icin 8 structured start/completed log mesaji okundu.
+- **Not/risk:** Ilk uygulamada DLQ icin kurulan nullable outbox `topic` desenini loglara da genelleyip ayni transaction guvencesi vermeyi secmistim; bu talimat sapmasiydi. Dogru karar D-009'a islendi: telemetri ve is/saga verisi farkli garanti siniflaridir; log outbox'u buyurse D-001 fail-fast davranisi nedeniyle saga event yayinini geciktirebilir.
+
+---

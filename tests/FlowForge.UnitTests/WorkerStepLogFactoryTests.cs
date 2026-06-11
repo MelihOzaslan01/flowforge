@@ -1,4 +1,4 @@
-using FlowForge.Contracts;
+using System.Text.Json;
 using FlowForge.Worker.Kafka;
 
 namespace FlowForge.UnitTests;
@@ -6,13 +6,13 @@ namespace FlowForge.UnitTests;
 public sealed class WorkerStepLogFactoryTests
 {
     [Fact]
-    public void Creates_structured_log_outbox_message_for_job_logs_topic()
+    public void Creates_structured_log_payload_for_job_logs_topic()
     {
         var runId = Guid.NewGuid();
         var startedAt = DateTimeOffset.Parse("2026-06-11T08:00:00Z");
         var finishedAt = startedAt.AddMilliseconds(1250);
 
-        var message = WorkerStepLogFactory.Create(
+        var json = WorkerStepLogFactory.CreateJson(
             runId,
             2,
             "TransformData",
@@ -23,12 +23,8 @@ public sealed class WorkerStepLogFactoryTests
             finishedAt,
             startedAt);
 
-        Assert.Equal(runId, message.AggregateId);
-        Assert.Equal(KafkaTopics.JobLogs, message.Topic);
-        Assert.Equal("WorkerStepLog", message.EventType);
-        Assert.Equal(finishedAt, message.OccurredAt);
-
-        var payload = message.Payload.RootElement;
+        using var payloadDocument = JsonDocument.Parse(json);
+        var payload = payloadDocument.RootElement;
         Assert.Equal(runId, payload.GetProperty("runId").GetGuid());
         Assert.Equal(2, payload.GetProperty("stepNo").GetInt32());
         Assert.Equal("TransformData", payload.GetProperty("stepType").GetString());

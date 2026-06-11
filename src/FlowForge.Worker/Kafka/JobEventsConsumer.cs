@@ -12,6 +12,7 @@ namespace FlowForge.Worker.Kafka;
 public sealed class JobEventsConsumer(
     IServiceScopeFactory scopes,
     IOptions<KafkaOptions> options,
+    JobLogPublisher jobLogPublisher,
     ILogger<JobEventsConsumer> logger)
     : BackgroundService
 {
@@ -229,7 +230,11 @@ public sealed class JobEventsConsumer(
 
         var nextEnvelope = CreateNextEnvelope(runId, step.StepNo, steps, execution.FinishedAt);
         db.OutboxMessages.Add(OutboxMessage.From(runId, nextEnvelope));
-        db.OutboxMessages.Add(WorkerStepLogFactory.Create(
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+
+        jobLogPublisher.Publish(
             runId,
             step.StepNo,
             step.StepType,
@@ -238,10 +243,7 @@ public sealed class JobEventsConsumer(
             $"Step {step.StepNo} completed.",
             execution.Attempt,
             execution.FinishedAt,
-            execution.StartedAt));
-
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+            execution.StartedAt);
 
         consumer.Commit(result);
     }
@@ -321,7 +323,11 @@ public sealed class JobEventsConsumer(
 
         var failed = new StepFailed(runId, step.StepNo, error, running.AttemptCount, steps);
         db.OutboxMessages.Add(OutboxMessage.From(runId, EventEnvelope.From(failed, occurredAt: failedAt)));
-        db.OutboxMessages.Add(WorkerStepLogFactory.Create(
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+
+        jobLogPublisher.Publish(
             runId,
             step.StepNo,
             step.StepType,
@@ -331,10 +337,7 @@ public sealed class JobEventsConsumer(
             running.AttemptCount,
             failedAt,
             running.StartedAt,
-            error));
-
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+            error);
 
         logger.LogWarning(
             "Redelivered zombie step marked failed for run {RunId}, step {StepNo}, attempt {Attempt}.",
@@ -405,7 +408,11 @@ public sealed class JobEventsConsumer(
         });
 
         db.OutboxMessages.Add(OutboxMessage.From(compensate.RunId, nextEnvelope));
-        db.OutboxMessages.Add(WorkerStepLogFactory.Create(
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+
+        jobLogPublisher.Publish(
             compensate.RunId,
             compensate.StepNo,
             step?.StepType ?? "Unknown",
@@ -415,10 +422,7 @@ public sealed class JobEventsConsumer(
             nextAttempt,
             compensatedAt,
             startedAt,
-            error));
-
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+            error);
     }
 
     private async Task ProcessStepCompensatedAsync(
@@ -660,7 +664,9 @@ public sealed class JobEventsConsumer(
             existing.Steps = CreateStepsDocument(steps);
         }
 
-        db.OutboxMessages.Add(WorkerStepLogFactory.Create(
+        await db.SaveChangesAsync(ct);
+
+        jobLogPublisher.Publish(
             runId,
             step.StepNo,
             step.StepType,
@@ -668,9 +674,7 @@ public sealed class JobEventsConsumer(
             _workerId,
             $"Step {step.StepNo} started.",
             attempt,
-            startedAt));
-
-        await db.SaveChangesAsync(ct);
+            startedAt);
     }
 
     private async Task RecordFailedAttemptAsync(
@@ -723,7 +727,9 @@ public sealed class JobEventsConsumer(
             existing.Error = exception.Message;
         }
 
-        db.OutboxMessages.Add(WorkerStepLogFactory.Create(
+        await db.SaveChangesAsync(ct);
+
+        jobLogPublisher.Publish(
             runId,
             step.StepNo,
             step.StepType,
@@ -733,9 +739,7 @@ public sealed class JobEventsConsumer(
             attempt,
             failedAt,
             startedAt,
-            exception.Message));
-
-        await db.SaveChangesAsync(ct);
+            exception.Message);
     }
 
     private static JsonDocument CreateStepsDocument(IReadOnlyList<JobStepDefinition> steps)

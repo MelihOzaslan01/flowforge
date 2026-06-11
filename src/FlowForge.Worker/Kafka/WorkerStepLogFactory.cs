@@ -1,12 +1,11 @@
 using System.Text.Json;
 using FlowForge.Contracts;
-using FlowForge.Outbox;
 
 namespace FlowForge.Worker.Kafka;
 
 public static class WorkerStepLogFactory
 {
-    public static OutboxMessage Create(
+    public static string CreateJson(
         Guid runId,
         int stepNo,
         string stepType,
@@ -22,7 +21,7 @@ public static class WorkerStepLogFactory
             ? null
             : Math.Max(0, (long)(timestamp - startedAt.Value).TotalMilliseconds);
 
-        var payload = JsonSerializer.SerializeToDocument(
+        return JsonSerializer.Serialize(
             new WorkerStepLog(
                 runId,
                 null,
@@ -36,13 +35,6 @@ public static class WorkerStepLogFactory
                 durationMs,
                 timestamp),
             ContractJson.Options);
-
-        return OutboxMessage.FromPayload(
-            runId,
-            "WorkerStepLog",
-            payload,
-            timestamp,
-            KafkaTopics.JobLogs);
     }
 
     private sealed record WorkerStepLog(

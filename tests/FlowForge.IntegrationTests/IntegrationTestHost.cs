@@ -35,6 +35,7 @@ public static class IntegrationTestHost
                     options.UseNpgsql(fixture.WorkerConnectionString));
                 services.Configure<KafkaOptions>(configuration.GetSection("Kafka"));
                 services.AddScoped<StepExecutor>();
+                services.AddSingleton<JobLogPublisher>();
                 services.AddHostedService<JobEventsConsumer>();
                 services.AddHostedService<ZombieStepCleaner>();
                 services.AddOutboxPublisher<WorkerDbContext>(configuration.GetSection("Kafka"));

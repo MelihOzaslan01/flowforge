@@ -73,3 +73,10 @@
 - **Alternatifler:** Dashboard'un mevcut HTTP API endpointleri üzerinden okuması reddedildi; aynı process içinde gereksiz network/serialization hop'u olur ve step verisi zaten API'de yok. Step verisini eventlerden ControlPlane projeksiyonuna almak reddedildi; daha doğru uzun vadeli model olsa da Faz 2 kapsamını aşar ve yeni projeksiyon/şema tasarımı gerektirir.
 - **Etki:** `src/FlowForge.ControlPlane/Data/WorkerReadDbContext.cs`, dashboard query servisi, appsettings ve compose connection stringleri etkilenir. Worker şeması değişmez; ControlPlane yalnız okuma yapar.
 - **Durum:** ⏳ İnceleme bekliyor
+
+## D-009 — 2026-06-11 — Worker logs bypass outbox
+- **Bağlam:** Görev 3.1'de Worker step logları yanlışlıkla outbox üzerinden `flowforge.job.logs` topic'ine yazıldı. Talimatın üçüncü maddesi logların outbox'tan geçmemesini gerektiriyordu; bu sessiz sapma DECISIONS'a koddan önce yazılmadığı için süreç ihlalidir.
+- **Karar:** Worker logları `JobLogPublisher` ile mevcut singleton Kafka producer'ı paylaşarak doğrudan `flowforge.job.logs` topic'ine fire-and-forget `Produce` edilir. Key `runId`; produce await edilmez; delivery handler ve synchronous produce hataları yalnız WARN loglar.
+- **Alternatifler:** Logları outbox'ta tutmak reddedildi; telemetri ile iş/saga verisi farklı garanti sınıflarıdır. Log outbox'u şişerse D-001 fail-fast davranışıyla saga eventlerinin yayını gecikebilir. İlk uygulamada outbox seçilmesinin nedeni DLQ için kurulan nullable `topic` desenini fazla genelleyip logları da aynı transaction güvencesine almak istememdi; bu, 3.1 talimatına aykırıydı.
+- **Etki:** `src/FlowForge.Worker/Kafka/JobEventsConsumer.cs`, `WorkerStepLogFactory`, yeni `JobLogPublisher`, Worker DI kayıtları ve unit test etkilenir. DB şeması değişmez; saga outbox'u artık job log kayıtlarıyla büyümez.
+- **Durum:** ⏳ İnceleme bekliyor
