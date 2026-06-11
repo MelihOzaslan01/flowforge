@@ -17,6 +17,21 @@ spec:
         - name: worker
           image: flowforge-worker:latest
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "tr '\\0' ' ' </proc/1/cmdline | grep -q FlowForge.Worker.dll"
+            initialDelaySeconds: 10
+            periodSeconds: 10
           env:
             - name: POSTGRES_PASSWORD
               valueFrom:

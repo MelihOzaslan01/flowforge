@@ -35,11 +35,13 @@ kubectl -n flowforge wait --for=condition=complete job/kafka-init --timeout=180s
 kubectl apply -f k8s/30-controlplane.yaml
 kubectl apply -f k8s/31-worker.yaml
 kubectl apply -f k8s/32-logindexer.yaml
+kubectl apply -f k8s/33-worker-hpa.yaml
 
 kubectl -n flowforge rollout status deployment/controlplane --timeout=180s
 kubectl -n flowforge rollout status deployment/worker --timeout=180s
 kubectl -n flowforge rollout status deployment/logindexer --timeout=180s
 kubectl -n flowforge rollout status deployment/kibana --timeout=180s
+kubectl -n flowforge get hpa worker
 ```
 
 ## Verify

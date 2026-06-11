@@ -80,3 +80,10 @@
 - **Alternatifler:** Logları outbox'ta tutmak reddedildi; telemetri ile iş/saga verisi farklı garanti sınıflarıdır. Log outbox'u şişerse D-001 fail-fast davranışıyla saga eventlerinin yayını gecikebilir. İlk uygulamada outbox seçilmesinin nedeni DLQ için kurulan nullable `topic` desenini fazla genelleyip logları da aynı transaction güvencesine almak istememdi; bu, 3.1 talimatına aykırıydı.
 - **Etki:** `src/FlowForge.Worker/Kafka/JobEventsConsumer.cs`, `WorkerStepLogFactory`, yeni `JobLogPublisher`, Worker DI kayıtları ve unit test etkilenir. DB şeması değişmez; saga outbox'u artık job log kayıtlarıyla büyümez.
 - **Durum:** ⏳ İnceleme bekliyor
+
+## D-010 — 2026-06-11 — Worker and LogIndexer liveness via exec probes
+- **Bağlam:** Görev 4.2 Worker ve LogIndexer için liveness probe istiyor, ancak bu servislerde HTTP endpoint yok. Talimat yeni framework/HTTP endpoint eklememeyi şart koşuyor.
+- **Karar:** Worker ve LogIndexer Deployment'larında `exec` liveness probe kullanılacak. Probe, container içindeki PID 1 komut satırında beklenen DLL adını (`FlowForge.Worker.dll` veya `FlowForge.LogIndexer.dll`) arar. Bu, .NET process'in hâlâ doğru entrypoint olarak çalıştığını sade biçimde doğrular.
+- **Alternatifler:** Worker/LogIndexer'a HTTP health endpoint eklemek reddedildi; yeni hosting/web yüzeyi ve port yönetimi getirirdi. `pidof dotnet` tek başına reddedildi; yanlış dotnet process'i durumunda daha az açıklayıcı olurdu. Kafka/DB/ES bağımlılıklarını liveness'a bağlamak reddedildi; geçici dış bağımlılık kesintileri process restart sebebi olmamalı.
+- **Etki:** Yalnız `k8s/31-worker.yaml` ve `k8s/32-logindexer.yaml` liveness probe alanları etkilenir. Uygulama runtime kodu değişmez.
+- **Durum:** ⏳ İnceleme bekliyor

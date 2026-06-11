@@ -33,6 +33,18 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
           env:
             - name: ASPNETCORE_URLS
               valueFrom:

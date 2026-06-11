@@ -4,6 +4,7 @@ using FlowForge.ControlPlane.Features.Jobs;
 using FlowForge.ControlPlane.Components;
 using FlowForge.ControlPlane.Projection;
 using FlowForge.Outbox;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 
@@ -11,7 +12,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddCheck<ControlDbHealthCheck>("control_db", tags: ["ready"]);
 builder.Services.AddMudServices();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -37,8 +39,14 @@ app.UseAntiforgery();
 await MigrateAndSeedAsync(app, app.Lifetime.ApplicationStopping);
 
 app.MapJobEndpoints();
-app.MapHealthChecks("/healthz");
-app.MapHealthChecks("/readyz");
+app.MapHealthChecks("/healthz", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+app.MapHealthChecks("/readyz", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

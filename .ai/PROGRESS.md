@@ -238,3 +238,11 @@
 - **Not/risk:** Lokal `k3d.exe` Windows'ta `Erisim engellendi` verdigi ve kube context bos oldugu icin README'deki `k3d image import` komutu birebir calistirilamadi. Dogrulama icin kubeconfig cluster container'indan gecici alindi, host portu `50307` yapildi; image import `docker save` + node `ctr -n k8s.io images import` ile esdeger sekilde tamamlandi.
 
 ---
+
+## 2026-06-11 — Görev 4.2: Probe bağlantıları ve Worker HPA
+- **Yapılan:** ControlPlane'e `/healthz` liveness ve `/readyz` readiness probe'lari eklendi; `/readyz` `control_db` baglantisini kontrol eden `ControlDbHealthCheck` ile gercek DB readiness oldu. Worker ve LogIndexer HTTP eklemeden `exec` liveness probe kullaniyor; Worker'a `requests: 100m/256Mi`, `limits: 500m/512Mi` ve HPA `cpu %70`, `min=2`, `max=6` eklendi.
+- **Dokunulan dosyalar:** yeni: `src/FlowForge.ControlPlane/Data/ControlDbHealthCheck.cs`, `k8s/33-worker-hpa.yaml`, `.ai/sessions/2026-06-11-gorev-4.2.md` | degisen: `src/FlowForge.ControlPlane/Program.cs`, `k8s/30-controlplane.yaml`, `k8s/31-worker.yaml`, `k8s/32-logindexer.yaml`, `k8s/README-k8s.md`, `.ai/BACKLOG.md`, `.ai/DECISIONS.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyari, 0 hata; `dotnet test .\flowforge.sln --no-build` ✅ — 7 unit + 3 integration, toplam 10 test; `kubectl apply --dry-run=client -f k8s` ✅; k3d rollout ✅ — controlplane/worker/logindexer; `kubectl top pods` ✅; `kubectl get hpa worker` ✅ — `cpu: 7%/70%`, unknown degil; readiness kaniti ✅ — Postgres `scale=0` sonrasi `/readyz=503` ve controlplane `ready=false`, `scale=1` sonrasi `/readyz=200` ve `ready=true`.
+- **Not/risk:** Worker/LogIndexer liveness probe secimi D-010'a islendi. ControlPlane image'i yeniden build edilip k3d node'larina import edildi; lokal `k3d.exe` erisim engelli oldugu icin gecici kubeconfig ile dogrulama yapildi.
+
+---

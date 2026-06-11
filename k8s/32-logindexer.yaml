@@ -17,6 +17,14 @@ spec:
         - name: logindexer
           image: flowforge-logindexer:latest
           imagePullPolicy: IfNotPresent
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "tr '\\0' ' ' </proc/1/cmdline | grep -q FlowForge.LogIndexer.dll"
+            initialDelaySeconds: 10
+            periodSeconds: 10
           env:
             - name: Kafka__BootstrapServers
               valueFrom:

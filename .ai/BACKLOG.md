@@ -33,7 +33,7 @@
 
 ## Faz 4 — Kubernetes
 - [x] 4.1 /k8s manifest seti (k3d)
-- [ ] 4.2 HPA (cpu %70, 2–6) + probe bağlantıları
+- [x] 4.2 HPA (cpu %70, 2–6) + probe bağlantıları
 - [ ] 4.3 scripts/chaos-pod-kill.sh + failover demosu
 - [ ] **Faz 4 kapanış:** pod kill altında run Completed → `git tag v0.4`
 
