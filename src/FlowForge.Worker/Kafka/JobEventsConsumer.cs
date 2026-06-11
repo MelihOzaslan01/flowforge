@@ -331,7 +331,7 @@ public sealed class JobEventsConsumer(
             runId,
             step.StepNo,
             step.StepType,
-            "Error",
+            "Warning",
             _workerId,
             $"Step {step.StepNo} failed as zombie.",
             running.AttemptCount,
@@ -613,6 +613,17 @@ public sealed class JobEventsConsumer(
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
+        jobLogPublisher.Publish(
+            runId,
+            step.StepNo,
+            step.StepType,
+            "Error",
+            _workerId,
+            $"Step {step.StepNo} exhausted after {exception.Attempts} attempts, moved to DLQ.",
+            exception.Attempts,
+            failedAt,
+            error: error);
+
         logger.LogError(
             exception.InnerException,
             "Retries exhausted for run {RunId}, step {StepNo}; message moved to DLQ and StepFailed was queued.",
@@ -733,7 +744,7 @@ public sealed class JobEventsConsumer(
             runId,
             step.StepNo,
             step.StepType,
-            "Error",
+            "Warning",
             _workerId,
             $"Step {step.StepNo} attempt {attempt} failed.",
             attempt,

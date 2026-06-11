@@ -222,3 +222,11 @@
 - **Not/risk:** Kod degisikligi gerekmedi; 3.2'deki template implementasyonu dogru oldugu icin 3.3 dokumantasyon ve canli dogrulama ile kapandi.
 
 ---
+
+## 2026-06-11 — Görev 3.3 düzeltmesi: Worker log severity semantiği
+- **Yapılan:** Retry attempt basarisizlik loglari `Error` yerine `Warning` seviyesine cekildi; zombi step logu da `Warning` seviyesinde kalacak sekilde duzeltildi. Retry tukenip mesaj DLQ'ya devredildikten sonra tek `Error` seviyeli structured log eklendi: `Step N exhausted after M attempts, moved to DLQ.`
+- **Dokunulan dosyalar:** yeni: `.ai/sessions/2026-06-11-gorev-3.3-log-level-duzeltme.md` | degisen: `src/FlowForge.Worker/Kafka/JobEventsConsumer.cs`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyari, 0 hata; `dotnet test .\flowforge.sln --no-build` ✅ — 7 unit + 3 integration, toplam 10 test; `docker compose up -d --build` ✅; chaos run `5b3aca2c-e8de-4ed9-8454-a1178acfd0c7` ✅ — `job_runs=Failed:3`, worker timeline `3 Failed` attempt `1..4` + compensation; ES aggregation ✅ — `Information=10`, `Warning=4`, `Error=1`; ES detay ✅ — 4 Warning attempt hatasi ve tek Error DLQ devri.
+- **Not/risk:** `scripts/chaos-smoke.sh` Failed run urettikten sonra Git Bash/Docker exec kabuk uyumsuzlugu nedeniyle DB kontrol adiminda `/usr/bin/env: 'sh': No such file or directory` ile cikti; ayni run icin DB ve ES kontrolleri manuel komutlarla tamamlandi.
+
+---
