@@ -55,7 +55,7 @@
 
 ## D-006 — 2026-06-11 — Running step rows carry recovery context
 - **Bağlam:** Görev 2.6 zombi temizleyici `Running + heartbeat > 60 sn eski` adımları `Failed` yapıp `StepFailed` yayınlamalı. `StepFailed` payload'ı D-002/D-004 çizgisinde `steps[]` taşımak zorunda; ayrıca orijinal Kafka mesajı yeniden teslim edilirse aynı adım yeniden çalışmamalı.
-- **Karar:** `job_step_runs` tablosuna nullable `steps jsonb` ve `source_message_id uuid` kolonları eklendi. Worker adımı çalıştırmadan önce `Running` satırı yazar; bu satır step listesi ve kaynak envelope `messageId` değerini taşır. Zombi temizleyici aynı transaction'da satırı `Failed` yapar, `StepFailed` outbox'a ekler ve `source_message_id` için `processed_messages` kaydı yazar.
+- **Karar:** `job_step_runs` tablosuna nullable `steps jsonb` ve `source_message_id uuid` kolonları eklendi. Worker adımı çalıştırmadan önce `Running` satırı yazar; bu satır step listesi ve kaynak envelope `messageId` değerini taşır. Zombi temizleyici startup'ta ve ardından 30 sn'de bir çalışır; aynı transaction'da satırı `Failed` yapar, `StepFailed` outbox'a ekler ve `source_message_id` için `processed_messages` kaydı yazar.
 - **Alternatifler:** Step listesini temizleyicide boş bırakmak reddedildi; compensation zinciri gerçek step tanımlarını kaybederdi. Orijinal mesaj redelivery'sini Kafka offset'e bırakmak reddedildi; crash sonrası aynı iş hem zombi `StepFailed` hem yeniden çalışma yoluna girebilirdi.
 - **Etki:** Worker DB migration'ları, `JobStepRun`, `JobEventsConsumer`, `StepHeartbeat` ve `ZombieStepCleaner` etkilenir. ControlPlane şeması değişmez.
 - **Durum:** ⏳ İnceleme bekliyor

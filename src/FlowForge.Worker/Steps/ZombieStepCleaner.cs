@@ -12,6 +12,7 @@ public sealed class ZombieStepCleaner(
     : BackgroundService
 {
     private static readonly TimeSpan StaleAfter = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(30);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -20,6 +21,12 @@ public sealed class ZombieStepCleaner(
         try
         {
             await CleanOnceAsync(stoppingToken);
+
+            using var timer = new PeriodicTimer(PollInterval);
+            while (await timer.WaitForNextTickAsync(stoppingToken))
+            {
+                await CleanOnceAsync(stoppingToken);
+            }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {

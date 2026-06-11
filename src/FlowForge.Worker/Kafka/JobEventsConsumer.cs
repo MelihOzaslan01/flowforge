@@ -16,6 +16,7 @@ public sealed class JobEventsConsumer(
     : BackgroundService
 {
     private const string ConsumerName = "worker";
+    private static readonly TimeSpan ZombieStaleAfter = TimeSpan.FromSeconds(60);
     private readonly string _workerId = Environment.MachineName;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -157,6 +158,12 @@ public sealed class JobEventsConsumer(
             step.StepNo,
             result.TopicPartitionOffset);
 
+        if (await TryCloseZombieRedeliveryAsync(db, envelope.MessageId, runId, step, steps, ct))
+        {
+            consumer.Commit(result);
+            return;
+        }
+
         StepExecutionResult execution;
         try
         {
@@ -227,6 +234,93 @@ public sealed class JobEventsConsumer(
         await tx.CommitAsync(ct);
 
         consumer.Commit(result);
+    }
+
+    private async Task<bool> TryCloseZombieRedeliveryAsync(
+        WorkerDbContext db,
+        Guid messageId,
+        Guid runId,
+        JobStepDefinition step,
+        IReadOnlyList<JobStepDefinition> steps,
+        CancellationToken ct)
+    {
+        var running = await db.JobStepRuns
+            .AsNoTracking()
+            .Where(run =>
+                run.SourceMessageId == messageId
+                && run.RunId == runId
+                && run.StepNo == step.StepNo
+                && run.Status == "Running")
+            .OrderByDescending(run => run.AttemptCount)
+            .FirstOrDefaultAsync(ct);
+
+        if (running is null)
+        {
+            return false;
+        }
+
+        var staleAt = running.LastHeartbeatAt + ZombieStaleAfter;
+        var delay = staleAt - DateTimeOffset.UtcNow;
+        if (delay > TimeSpan.Zero)
+        {
+            logger.LogWarning(
+                "Redelivered message {MessageId} for run {RunId}, step {StepNo} has an active Running attempt; waiting {DelaySeconds:F1}s for zombie threshold.",
+                messageId,
+                runId,
+                step.StepNo,
+                delay.TotalSeconds);
+            await Task.Delay(delay.Add(TimeSpan.FromSeconds(1)), ct);
+        }
+
+        var alreadyProcessed = await db.ProcessedMessages
+            .AnyAsync(message => message.MessageId == messageId, ct);
+        if (alreadyProcessed)
+        {
+            return true;
+        }
+
+        var failedAt = DateTimeOffset.UtcNow;
+        var error = $"Zombie step detected during redelivery; heartbeat stale since {running.LastHeartbeatAt:O}.";
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var updated = await db.JobStepRuns
+            .Where(run =>
+                run.Id == running.Id
+                && run.Status == "Running"
+                && run.LastHeartbeatAt < failedAt - ZombieStaleAfter)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(run => run.Status, "Failed")
+                    .SetProperty(run => run.FinishedAt, failedAt)
+                    .SetProperty(run => run.LastHeartbeatAt, failedAt)
+                    .SetProperty(run => run.Error, error),
+                ct);
+
+        if (updated == 0)
+        {
+            await tx.RollbackAsync(ct);
+            return false;
+        }
+
+        db.ProcessedMessages.Add(new ProcessedMessage
+        {
+            MessageId = messageId,
+            Consumer = ConsumerName,
+            ProcessedAt = failedAt
+        });
+
+        var failed = new StepFailed(runId, step.StepNo, error, running.AttemptCount, steps);
+        db.OutboxMessages.Add(OutboxMessage.From(runId, EventEnvelope.From(failed, occurredAt: failedAt)));
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+
+        logger.LogWarning(
+            "Redelivered zombie step marked failed for run {RunId}, step {StepNo}, attempt {Attempt}.",
+            runId,
+            step.StepNo,
+            running.AttemptCount);
+        return true;
     }
 
     private async Task ProcessStepFailedAsync(

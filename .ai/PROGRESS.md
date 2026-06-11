@@ -158,3 +158,11 @@
 - **Not/risk:** Zombi senaryosu canlı crash/pod-kill ile doğrulanmadı; ileride 4.3 chaos-pod-kill veya integration test kapsamına alınabilir.
 
 ---
+
+## 2026-06-11 — Görev 2.6 takip düzeltmesi: periyodik zombi temizleyici ve commit kuralı
+- **Yapılan:** `ZombieStepCleaner` yalnız startup'ta değil, startup sonrası 30 sn'de bir periyodik çalışacak hale getirildi. Redelivery kör noktası kapatıldı: aynı kaynak mesaj için aktif `Running` satır varsa devralan worker zombi eşiğine kadar bekliyor, stale ise aynı messageId'yi inbox'a yazıp `StepFailed` üreterek mesajı yeniden çalıştırmadan kapatıyor. Commit mesaj formatı kalıcı kural olarak `docs/implementation-guide.md` §0'a eklendi.
+- **Dokunulan dosyalar:** değişen: `src/FlowForge.Worker/Steps/ZombieStepCleaner.cs`, `src/FlowForge.Worker/Kafka/JobEventsConsumer.cs`, `docs/implementation-guide.md`, `.ai/DECISIONS.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅; `dotnet test .\tests\FlowForge.UnitTests\FlowForge.UnitTests.csproj --no-build` ✅; `docker compose up -d --build` ✅; canlı zombi testi ✅ — step 2 worker'ı öldürüldü, `job_runs=Failed|2`, worker rows: `1|Completed`, `2|Failed|...Zombie step detected during redelivery...`, `1|Compensated`.
+- **Not/risk:** İlk canlı kill step 1'e denk geldiği için compensation beklenmedi; ikinci test step 2 üzerinde compensation yolunu doğruladı.
+
+---

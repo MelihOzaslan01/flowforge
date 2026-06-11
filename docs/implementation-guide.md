@@ -19,6 +19,7 @@ Sen kıdemli bir .NET backend mühendisisin. FlowForge adlı dağıtık job orch
 6. Secrets/connection string'ler appsettings + environment variable üzerinden; koda gömme.
 7. Her faz sonunda README.md'nin ilgili bölümünü güncelle ve `git tag v0.X` öner.
 8. Takip disiplini: her görev sonunda `.ai/BACKLOG.md`'de görevi işaretle ve `.ai/PROGRESS.md`'ye şablona uygun blok ekle. Talimatta belirtilmeyen bir karar almak veya talimattan sapmak zorunda kalırsan, kodu yazmadan ÖNCE `.ai/DECISIONS.md`'ye gerekçesiyle kaydet. Oturum sonunda `.ai/sessions/` altındaki aktif dosyanın özet bölümünü doldur. Yeni oturuma başlarken önce PROGRESS.md ve son session dosyasını oku.
+9. Commit mesajı formatı: `tip(scope): açıklama (task X.Y)`. Bu formata uymayan commit, görevin tamamlanmamış sayılmasına yol açar.
 
 ---
 
