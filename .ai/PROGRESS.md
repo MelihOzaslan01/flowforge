@@ -230,3 +230,11 @@
 - **Not/risk:** `scripts/chaos-smoke.sh` Failed run urettikten sonra Git Bash/Docker exec kabuk uyumsuzlugu nedeniyle DB kontrol adiminda `/usr/bin/env: 'sh': No such file or directory` ile cikti; ayni run icin DB ve ES kontrolleri manuel komutlarla tamamlandi.
 
 ---
+
+## 2026-06-11 — Görev 4.1: k3d manifest seti
+- **Yapılan:** `/k8s` klasorune k3d hedefli manifest seti eklendi: `flowforge` namespace, ConfigMap/Secret, Kafka KRaft tek replica StatefulSet + headless/regular Service, Postgres StatefulSet + 1Gi PVC + init-dbs ConfigMap, Elasticsearch tek node, Kibana Deployment, kafka-init Job, ControlPlane Deployment/Service/Ingress, Worker `replicas=3`, LogIndexer Deployment. Probe ve HPA eklenmedi.
+- **Dokunulan dosyalar:** yeni: `k8s/00-namespace.yaml`, `k8s/01-config.yaml`, `k8s/10-kafka.yaml`, `k8s/11-postgres.yaml`, `k8s/12-elasticsearch.yaml`, `k8s/13-kibana.yaml`, `k8s/20-kafka-init-job.yaml`, `k8s/30-controlplane.yaml`, `k8s/31-worker.yaml`, `k8s/32-logindexer.yaml`, `k8s/README-k8s.md`, `.ai/sessions/2026-06-11-gorev-4.1.md` | degisen: `.ai/BACKLOG.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** k3d cluster container'lari mevcut ve `kubectl --kubeconfig C:\tmp\flowforge-kubeconfig.yaml get nodes` ✅ — server + 2 agent `Ready`; app image'lari 3 node'a import edildi ✅; `kubectl -n flowforge get pods` ✅ — runtime podlari `Running`, `kafka-init` `Completed`; `curl http://localhost:5001/api/jobs` ✅ — JSON dondu; run `4715e1e5-c73c-492d-8d29-426ca8edf0cd` ✅ — `Completed`.
+- **Not/risk:** Lokal `k3d.exe` Windows'ta `Erisim engellendi` verdigi ve kube context bos oldugu icin README'deki `k3d image import` komutu birebir calistirilamadi. Dogrulama icin kubeconfig cluster container'indan gecici alindi, host portu `50307` yapildi; image import `docker save` + node `ctr -n k8s.io images import` ile esdeger sekilde tamamlandi.
+
+---

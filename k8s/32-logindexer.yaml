@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logindexer
+  namespace: flowforge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logindexer
+  template:
+    metadata:
+      labels:
+        app: logindexer
+    spec:
+      containers:
+        - name: logindexer
+          image: flowforge-logindexer:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: Kafka__BootstrapServers
+              valueFrom:
+                configMapKeyRef:
+                  name: flowforge-config
+                  key: KAFKA_BOOTSTRAP_SERVERS
+            - name: Elasticsearch__Uri
+              valueFrom:
+                configMapKeyRef:
+                  name: flowforge-config
+                  key: ELASTICSEARCH_URI
