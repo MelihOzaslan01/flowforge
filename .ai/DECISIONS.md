@@ -87,3 +87,10 @@
 - **Alternatifler:** Worker/LogIndexer'a HTTP health endpoint eklemek reddedildi; yeni hosting/web yüzeyi ve port yönetimi getirirdi. `pidof dotnet` tek başına reddedildi; yanlış dotnet process'i durumunda daha az açıklayıcı olurdu. Kafka/DB/ES bağımlılıklarını liveness'a bağlamak reddedildi; geçici dış bağımlılık kesintileri process restart sebebi olmamalı.
 - **Etki:** Yalnız `k8s/31-worker.yaml` ve `k8s/32-logindexer.yaml` liveness probe alanları etkilenir. Uygulama runtime kodu değişmez.
 - **Durum:** ⏳ İnceleme bekliyor
+
+## D-011 — 2026-06-12 — Kubernetes failover accepts terminal recovery paths
+- **Bağlam:** Faz 4 kapanışında worker pod'u step 2 çalışırken öldürüldüğünde run kaybolmuyor; zamanlamaya göre ya redelivery ile `Completed` oluyor ya da zombi temizleyici yolu ile `Failed` olup tamamlanmış önceki adımlar `Compensated` ediliyor.
+- **Karar:** Faz 4 kapanış kriteri iki terminal sonucu da kapsar: pod kill altında run kaybolmamalı; ya redelivery ile `Completed` ya da zombi yolundan `Failed` + `Compensated` bitmelidir.
+- **Alternatifler:** Stale step'in devralan worker'da yeniden çalıştırılması reddedildi. Bu seçenek 2.6'da kapatılan duplicate-execution yarış penceresini geri açar; at-most-once adım çalıştırma garantisi, run kurtarma estetiğinden önceliklidir.
+- **Etki:** Kod davranışı değişmez. `.ai/BACKLOG.md` Faz 4 kapanış metni ve `k8s/README-k8s.md` failover demo açıklaması netleştirilir.
+- **Durum:** ✅ Onaylandı

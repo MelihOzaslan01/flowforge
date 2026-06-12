@@ -35,7 +35,7 @@
 - [x] 4.1 /k8s manifest seti (k3d)
 - [x] 4.2 HPA (cpu %70, 2–6) + probe bağlantıları
 - [x] 4.3 scripts/chaos-pod-kill.sh + failover demosu
-- [ ] **Faz 4 kapanış:** pod kill altında run Completed → `git tag v0.4`
+- [x] **Faz 4 kapanış:** pod kill altında run kaybolmaz: Completed VEYA Failed+Compensated → `git tag v0.4`
 
 ## Faz 5 — CI + Cila
 - [ ] 5.1 GitHub Actions (build+unit her push, integration nightly)

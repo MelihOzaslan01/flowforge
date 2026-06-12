@@ -94,8 +94,19 @@ Timeline for 00000000-0000-0000-0000-000000000000:
 Failover demo passed through zombie path...
 ```
 
-Depending on timing, a fully redelivered run may also finish as `Completed`.
-Both terminal paths are accepted by the script:
+### Two valid outcomes
+
+Depending on timing, a fully redelivered run may finish as `Completed`. This
+happens when Kubernetes replaces the pod and Kafka redelivery reaches a worker
+before the running step is closed as stale.
+
+The run may also finish as `Failed` with compensation. This happens when the
+heartbeat for the killed pod's running step crosses the zombie threshold; the
+system marks that step failed, emits `StepFailed`, and compensates already
+completed steps in reverse order.
+
+Both outcomes are successful failover demonstrations because the run is not
+lost or left stuck:
 
 - `Completed` after worker replacement.
 - `Failed` at step 2 with step 1 compensated by the zombie cleanup path.
