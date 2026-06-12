@@ -1,16 +1,17 @@
-name: build-and-unit
+name: integration
 
 on:
-  push:
-  pull_request:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build-and-unit:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+  integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -32,5 +33,5 @@ jobs:
       - name: Build
         run: dotnet build ./flowforge.sln -warnaserror
 
-      - name: Unit tests
-        run: dotnet test ./tests/FlowForge.UnitTests/FlowForge.UnitTests.csproj --no-build
+      - name: Integration tests
+        run: dotnet test ./tests/FlowForge.IntegrationTests/FlowForge.IntegrationTests.csproj --no-build

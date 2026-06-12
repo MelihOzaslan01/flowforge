@@ -270,3 +270,11 @@
 - **Not/risk:** `workflow_dispatch` endpoint'i mevcut, ancak bu ortamda `gh` yok ve GitHub API dispatch auth gerektirdigi icin integration run ajan tarafindan tetiklenemedi (`401 Requires authentication`). 5.1 bu yuzden `[~]` birakildi; kullanici Actions UI'dan `Run workflow` ile integration'i tetikleyince sonuc kayda alinacak. CI integration Kafka startup timeout'u olursa fixture beklemeleri ortam degiskeniyle esnetilecek; ilk committe koda sabit yeni bekleme suresi eklenmedi.
 
 ---
+
+## 2026-06-12 — Görev 5.1 düzeltmesi: Integration workflow ayrımı
+- **Yapılan:** Integration job'i `ci.yml` icinden ayrilip `.github/workflows/integration.yml` dosyasina tasindi. `ci.yml` artik yalniz push/PR tetiklemeli `build-and-unit` workflow'u; `integration.yml` ise nightly cron ve `workflow_dispatch` ile ayri GitHub Actions menusu ve `Run workflow` butonu uretir.
+- **Dokunulan dosyalar:** yeni: `.github/workflows/integration.yml` | degisen: `.github/workflows/ci.yml`, `.ai/PROGRESS.md`, `.ai/sessions/2026-06-12-gorev-5.1.md`
+- **Doğrulama:** YAML lint ✅ — PyYAML parse, whitespace kontrolu ve `git diff --check`; local `dotnet build .\flowforge.sln -warnaserror` ✅; local `dotnet test .\tests\FlowForge.UnitTests\FlowForge.UnitTests.csproj --no-build` ✅ — 7 test. Push sonrasi workflow gorunurlugu kontrol edilecek.
+- **Not/risk:** Integration manual run sonucu hala kullanici tarafindan Actions UI'da tetiklenip raporlanacak.
+
+---
