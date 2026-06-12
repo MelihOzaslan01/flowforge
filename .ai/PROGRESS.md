@@ -246,3 +246,11 @@
 - **Not/risk:** Worker/LogIndexer liveness probe secimi D-010'a islendi. ControlPlane image'i yeniden build edilip k3d node'larina import edildi; lokal `k3d.exe` erisim engelli oldugu icin gecici kubeconfig ile dogrulama yapildi.
 
 ---
+
+## 2026-06-12 — Görev 4.3: Pod kill failover scriptleri
+- **Yapılan:** `scripts/chaos-pod-kill.sh` eklendi; normal job'i tetikliyor, step 2 `Running` iken ilgili worker pod'unu `worker_db.job_step_runs.worker_id` uzerinden bulup siliyor, run terminal olunca `job_step_runs` timeline'ini basiyor ve `Completed` veya zombi yolu `Failed` + compensation durumuna gore exit code veriyor. `scripts/hpa-load.sh` eklendi; chaos job'ini varsayilan 30 kez hizli aralikla tetikleyip HPA watcher'a uygun yuk uretiyor. `k8s/README-k8s.md` icine Failover Demo, Watching HPA Scale ve Windows Bash/LF notlari eklendi.
+- **Dokunulan dosyalar:** yeni: `scripts/chaos-pod-kill.sh`, `scripts/hpa-load.sh`, `.ai/sessions/2026-06-12-gorev-4.3.md` | degisen: `k8s/README-k8s.md`, `.ai/BACKLOG.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** `dotnet build .\flowforge.sln -warnaserror` ✅ — 0 uyari, 0 hata; `dotnet test .\flowforge.sln --no-build` ✅ — 7 unit + 3 integration, toplam 10 test; `git diff --check` ✅; scriptler LF (`CRLF=0`) ✅; Git Bash `bash -n` parse kontrolu ✅; shellcheck-vari manuel goz kontrolu ✅. Canli k3d demo insan tarafindan kosulacak.
+- **Not/risk:** Failover script'i zamanlamayi sadece uykuya birakmiyor; 8 sn bekledikten sonra step 2 `Running` satirini poll ediyor. Zombi yolu bugunku tasarim geregi yaklasik 60 sn heartbeat stale esigini bekleyebilir.
+
+---

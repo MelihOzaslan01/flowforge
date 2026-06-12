@@ -70,6 +70,95 @@ Expected result:
 - `http://localhost:5001/api/jobs` returns JSON.
 - The triggered `monthly-sales-report` run reaches `Completed`.
 
+## Failover Demo
+
+This demo starts a normal `monthly-sales-report` run, waits until step 2 is
+running, reads the worker pod name from `worker_db.job_step_runs.worker_id`, and
+deletes that pod.
+
+```bash
+scripts/chaos-pod-kill.sh
+```
+
+Expected output shape:
+
+```text
+Run id: 00000000-0000-0000-0000-000000000000
+Deleting worker pod worker-... while step 2 is Running...
+Status: Running
+...
+Timeline for 00000000-0000-0000-0000-000000000000:
+1 | Completed | attempt=1 | worker=worker-...
+2 | Failed | attempt=1 | worker=worker-... | ...Zombie step detected...
+1 | Compensated | attempt=2 | worker=worker-...
+Failover demo passed through zombie path...
+```
+
+Depending on timing, a fully redelivered run may also finish as `Completed`.
+Both terminal paths are accepted by the script:
+
+- `Completed` after worker replacement.
+- `Failed` at step 2 with step 1 compensated by the zombie cleanup path.
+
+Useful overrides:
+
+```bash
+BASE_URL=http://localhost:5001 NAMESPACE=flowforge scripts/chaos-pod-kill.sh
+KILL_DELAY_SECONDS=10 RUN_TIMEOUT_SECONDS=180 scripts/chaos-pod-kill.sh
+```
+
+## Watching HPA Scale
+
+In one terminal, watch the Worker HPA:
+
+```bash
+kubectl -n flowforge get hpa worker -w
+```
+
+In another terminal, generate a burst of work:
+
+```bash
+scripts/hpa-load.sh
+```
+
+Expected output shape from the load script:
+
+```text
+Triggering 30 monthly-sales-report-chaos runs against http://localhost:5001...
+1/30: 00000000-0000-0000-0000-000000000000
+...
+30/30: 00000000-0000-0000-0000-000000000000
+Load submitted. Keep watching HPA and worker pods:
+```
+
+Expected watcher shape:
+
+```text
+NAME     REFERENCE           TARGETS    MINPODS   MAXPODS   REPLICAS
+worker   Deployment/worker   75%/70%    2         6         3
+```
+
+CPU scaling depends on local machine capacity and metrics-server sampling
+windows. If `TARGETS` starts as `<unknown>`, wait for the next metrics sample
+or confirm `kubectl top pods -n flowforge` works.
+
+Useful overrides:
+
+```bash
+RUNS=50 INTERVAL_SECONDS=0.1 scripts/hpa-load.sh
+BASE_URL=http://localhost:5001 JOB_NAME=monthly-sales-report scripts/hpa-load.sh
+```
+
+## Windows Notes
+
+The scripts are LF-terminated Bash scripts. On Windows, run them from Git Bash
+or WSL so `curl`, `kubectl`, and POSIX shell behavior are available:
+
+```bash
+bash scripts/chaos-pod-kill.sh
+bash scripts/hpa-load.sh
+```
+
 ## Reset Demo State
 
 To recreate databases and Kafka/Elasticsearch data from scratch:
