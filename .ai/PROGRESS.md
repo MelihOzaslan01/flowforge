@@ -254,3 +254,11 @@
 - **Not/risk:** Failover script'i zamanlamayi sadece uykuya birakmiyor; 8 sn bekledikten sonra step 2 `Running` satirini poll ediyor. Zombi yolu bugunku tasarim geregi yaklasik 60 sn heartbeat stale esigini bekleyebilir.
 
 ---
+
+## 2026-06-12 — Görev 4.3 takip düzeltmesi: Failover poll timeout
+- **Yapılan:** `scripts/chaos-pod-kill.sh` poll timeout varsayilani 150 sn'den 180 sn'ye cikarildi. Run status poll satiri UTC zaman damgasi basacak hale getirildi; GIF/demo akisi icin her durum satiri zamanla okunabilir.
+- **Dokunulan dosyalar:** yeni: `.ai/sessions/2026-06-12-gorev-4.3-timeout-duzeltme.md` | degisen: `scripts/chaos-pod-kill.sh`, `.ai/PROGRESS.md`
+- **Doğrulama:** Git Bash `bash -n scripts/chaos-pod-kill.sh` ✅; `git diff --check` ✅; script LF (`CRLF=0`) ✅.
+- **Not/risk:** Canli pod kill dogrulamasi Faz 4 kapanisinda yapilacak.
+
+---

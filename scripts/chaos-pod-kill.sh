@@ -6,7 +6,7 @@ NAMESPACE="${NAMESPACE:-flowforge}"
 JOB_NAME="${JOB_NAME:-monthly-sales-report}"
 KILL_DELAY_SECONDS="${KILL_DELAY_SECONDS:-8}"
 STEP_NO="${STEP_NO:-2}"
-RUN_TIMEOUT_SECONDS="${RUN_TIMEOUT_SECONDS:-150}"
+RUN_TIMEOUT_SECONDS="${RUN_TIMEOUT_SECONDS:-180}"
 
 sleep_seconds() {
   if command -v sleep >/dev/null 2>&1; then
@@ -16,6 +16,16 @@ sleep_seconds() {
   else
     echo "sleep command not found."
     exit 1
+  fi
+}
+
+utc_now() {
+  if command -v date >/dev/null 2>&1; then
+    date -u +"%Y-%m-%dT%H:%M:%SZ"
+  elif command -v powershell.exe >/dev/null 2>&1; then
+    powershell.exe -NoProfile -Command "[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')" | tr -d '\r'
+  else
+    printf 'unknown-time'
   fi
 }
 
@@ -125,7 +135,7 @@ while [ "${attempt}" -le "${RUN_TIMEOUT_SECONDS}" ]; do
   run_json="$(curl --max-time 5 -fsS "${BASE_URL}/api/runs/${run_id}" || true)"
   status="$(json_value "status" "${run_json}")"
   failed_step="$(json_value "failedStep" "${run_json}")"
-  echo "Status: ${status:-unknown}"
+  echo "$(utc_now) Status: ${status:-unknown}"
 
   if [ "${status}" = "Completed" ] || [ "${status}" = "Failed" ]; then
     break
