@@ -262,3 +262,11 @@
 - **Not/risk:** Canli pod kill dogrulamasi Faz 4 kapanisinda yapilacak.
 
 ---
+
+## 2026-06-12 — Görev 5.1: GitHub Actions CI
+- **Yapılan:** `.github/workflows/ci.yml` eklendi; push/PR eventlerinde `build-and-unit`, nightly schedule ve `workflow_dispatch` eventlerinde `integration` job'i kosacak. Her iki job .NET 9 setup ve NuGet cache kullanir; integration job 20 dk timeout ile Testcontainers'i GitHub hosted runner Docker'ina birakir. README'ye `build-and-unit` badge'i eklendi.
+- **Dokunulan dosyalar:** yeni: `.github/workflows/ci.yml`, `.ai/sessions/2026-06-12-gorev-5.1.md` | degisen: `README.md`, `.ai/BACKLOG.md`, `.ai/PROGRESS.md`
+- **Doğrulama:** YAML lint, local build/unit, push sonrasi Actions build-and-unit ve manual integration sonucu bu oturumda tamamlanacak.
+- **Not/risk:** CI integration Kafka startup timeout'u olursa fixture beklemeleri ortam degiskeniyle esnetilecek; ilk committe koda sabit yeni bekleme suresi eklenmedi.
+
+---

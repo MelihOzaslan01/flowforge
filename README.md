@@ -1,11 +1,12 @@
 ﻿# FlowForge
 
+[![build-and-unit](https://github.com/MelihOzaslan01/flowforge/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/MelihOzaslan01/flowforge/actions/workflows/ci.yml)
+
 > **Distributed Job Orchestration Platform** — a from-scratch implementation of Kafka, the Outbox Pattern, choreography Sagas, and Kubernetes-based failover in .NET 9.
 >
 > I previously designed and ran a production orchestrator on a single-server, SQL-backed queue (80+ RPA bots). FlowForge is my redesign of the **same problem for distributed scale** — built to learn the trade-offs by living them, not by reading about them.
 
 <!-- Faz 4 sonrası: buraya chaos demo GIF'i (pod kill → job survives) -->
-<!-- Faz 5 sonrası: buraya CI badge -->
 
 ## What it demonstrates
 

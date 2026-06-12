@@ -38,7 +38,7 @@
 - [x] **Faz 4 kapanış:** pod kill altında run kaybolmaz: Completed VEYA Failed+Compensated → `git tag v0.4`
 
 ## Faz 5 — CI + Cila
-- [ ] 5.1 GitHub Actions (build+unit her push, integration nightly)
+- [~] 5.1 GitHub Actions (build+unit her push, integration nightly)
 - [ ] 5.2 README: diyagram + GIF + test listesi
 - [ ] 5.3 3 ADR (choreography, outbox, sql-queue-vs-kafka)
 - [ ] 5.4 Grafana dashboard JSON'ları
